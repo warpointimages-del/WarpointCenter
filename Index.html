@@ -19,33 +19,19 @@
             </div>
         </div>
 
-        <!-- Controls -->
-        <div class="controls">
-            <select id="month-selector" class="month-selector">
-                <option value="2025-01">Январь 2025</option>
-                <option value="2025-02">Февраль 2025</option>
-                <option value="2025-03">Март 2025</option>
-                <option value="2025-04">Апрель 2025</option>
-                <option value="2025-05">Май 2025</option>
-                <option value="2025-06">Июнь 2025</option>
-                <option value="2025-07">Июль 2025</option>
-                <option value="2025-08">Август 2025</option>
-                <option value="2025-09">Сентябрь 2025</option>
-                <option value="2025-10">Октябрь 2025</option>
-                <option value="2025-11">Ноябрь 2025</option>
-                <option value="2025-12">Декабрь 2025</option>
-            </select>
-            <button id="refresh-btn" class="refresh-btn">🔄 Обновить</button>
-            <div id="admin-panel" class="hidden">
-                <button id="manage-users-btn" class="admin-btn">👥 Управление</button>
-            </div>
-        </div>
-
         <!-- Today Info -->
         <div class="today-info">
             <h3>Сегодня: <span id="today-date"></span></h3>
             <p>Сотрудник: <span id="today-employee"></span></p>
             <p>Статус: <span id="today-status"></span></p>
+        </div>
+
+        <!-- Week Navigation -->
+        <div class="week-navigation">
+            <button id="prev-week" class="nav-btn">◀</button>
+            <span id="week-range" class="week-range"></span>
+            <button id="next-week" class="nav-btn">▶</button>
+            <button id="toggle-view" class="toggle-btn">▼</button>
         </div>
 
         <!-- Calendar -->
@@ -56,16 +42,12 @@
             <div id="calendar-grid" class="calendar-grid"></div>
         </div>
 
-        <!-- Legend -->
-        <div class="legend">
-            <div class="legend-title">Обозначения смен</div>
-            <div class="legend-items">
-                <div class="legend-item"><div class="legend-color" style="background: #ff9f43;"></div><span>Короткая (1-4ч)</span></div>
-                <div class="legend-item"><div class="legend-color" style="background: #54a0ff;"></div><span>Дневная (5-8ч)</span></div>
-                <div class="legend-item"><div class="legend-color" style="background: #2ecc71;"></div><span>Полная (9-11ч)</span></div>
-                <div class="legend-item"><div class="legend-color" style="background: #9b59b6;"></div><span>Расширенная (12ч)</span></div>
-                <div class="legend-item"><div class="legend-color" style="background: #e74c3c;"></div><span>Длинная (12+ч)</span></div>
-            </div>
+        <!-- Refresh Button -->
+        <button id="refresh-btn" class="refresh-btn">🔄</button>
+
+        <!-- Admin Panel -->
+        <div id="admin-panel" class="admin-panel hidden">
+            <button id="manage-users-btn" class="admin-btn">👥 Управление сотрудниками</button>
         </div>
 
         <!-- Loading -->
@@ -75,7 +57,7 @@
         </div>
     </div>
 
-    <!-- Modal -->
+    <!-- User Management Modal -->
     <div id="user-modal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">
