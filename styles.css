@@ -6,15 +6,16 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #f8f9fa;
+    background: #2c2c2c;
     min-height: 100vh;
     padding: 16px;
-    color: #333;
+    color: #fff;
 }
 
 .container {
     max-width: 100%;
     margin: 0 auto;
+    position: relative;
 }
 
 .hidden {
@@ -23,130 +24,148 @@ body {
 
 /* Header */
 .header {
-    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+    background: #3a3a3a;
     color: white;
-    padding: 20px;
-    border-radius: 16px;
-    margin-bottom: 20px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 15px;
     text-align: center;
 }
 
 .header h1 {
-    font-size: 24px;
-    margin-bottom: 8px;
-    font-weight: 600;
+    font-size: 20px;
+    margin-bottom: 5px;
 }
 
 .user-info {
-    font-size: 16px;
-    opacity: 0.9;
-}
-
-/* Controls */
-.controls {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 20px;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-}
-
-.month-selector {
-    padding: 12px 16px;
-    border: 2px solid #e0e0e0;
-    border-radius: 12px;
-    background: white;
     font-size: 14px;
-    font-weight: 500;
-    min-width: 150px;
-}
-
-.refresh-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 12px;
-    cursor: pointer;
-    font-weight: 600;
-}
-
-.admin-btn {
-    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 12px;
-    cursor: pointer;
-    font-weight: 600;
+    opacity: 0.9;
 }
 
 /* Today Info */
 .today-info {
-    background: white;
-    border-radius: 16px;
-    padding: 20px;
-    margin-bottom: 20px;
+    background: #3a3a3a;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 15px;
     text-align: center;
 }
 
 .today-info h3 {
-    color: #667eea;
-    margin-bottom: 12px;
+    color: #4fc3f7;
+    margin-bottom: 8px;
+    font-size: 16px;
+}
+
+.today-info p {
+    margin: 5px 0;
+    font-size: 14px;
 }
 
 #today-status.has-shift {
-    color: #2ecc71;
+    color: #4caf50;
     font-weight: 600;
 }
 
 #today-status.no-shift {
-    color: #e74c3c;
+    color: #f44336;
     font-weight: 600;
+}
+
+/* Week Navigation */
+.week-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    background: #3a3a3a;
+    padding: 12px;
+    border-radius: 12px;
+}
+
+.nav-btn {
+    background: #4a4a4a;
+    color: white;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.week-range {
+    font-weight: 600;
+    font-size: 14px;
+    min-width: 200px;
+    text-align: center;
+}
+
+.toggle-btn {
+    background: #4a4a4a;
+    color: white;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    margin-left: 10px;
 }
 
 /* Calendar */
 .calendar {
-    background: white;
-    border-radius: 16px;
-    padding: 20px;
-    margin-bottom: 20px;
+    background: #3a3a3a;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 15px;
 }
 
 .calendar-header {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 8px;
-    margin-bottom: 16px;
+    gap: 5px;
+    margin-bottom: 10px;
     font-weight: 600;
     text-align: center;
+    font-size: 12px;
 }
 
 .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 8px;
+    gap: 5px;
 }
 
 .calendar-day {
     aspect-ratio: 1;
-    border-radius: 12px;
-    padding: 8px;
-    border: 2px solid #f0f0f0;
+    border-radius: 8px;
+    padding: 6px;
+    border: 2px solid #4a4a4a;
     display: flex;
     flex-direction: column;
+    background: #4a4a4a;
 }
 
 .calendar-day.today {
-    border-color: #ff6b6b;
-    background: #fff5f5;
+    border-color: #4fc3f7;
+    background: #3a4a5a;
+}
+
+.calendar-day.empty {
+    background: transparent;
+    border: none;
 }
 
 .day-number {
     font-weight: 600;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
+    font-size: 12px;
+    text-align: center;
 }
 
 .shifts-container {
@@ -157,55 +176,45 @@ body {
 }
 
 .shift-item {
-    padding: 3px 5px;
-    border-radius: 5px;
+    padding: 3px 4px;
+    border-radius: 4px;
     font-size: 10px;
     text-align: center;
     color: white;
+    background: #5a5a5a;
 }
 
-.shift-short { background: #ff9f43; }
-.shift-day { background: #54a0ff; }
-.shift-full { background: #2ecc71; }
-.shift-extended { background: #9b59b6; }
-.shift-long { background: #e74c3c; }
-
-.shift-hours {
-    font-weight: bold;
-    margin-right: 2px;
+/* Refresh Button */
+.refresh-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #4fc3f7;
+    color: white;
+    border: none;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    z-index: 100;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
 }
 
-/* Legend */
-.legend {
-    background: white;
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 20px;
-}
-
-.legend-title {
-    font-weight: 600;
-    margin-bottom: 12px;
+/* Admin Panel */
+.admin-panel {
     text-align: center;
+    margin: 15px 0;
 }
 
-.legend-items {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: 10px;
-}
-
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.admin-btn {
+    background: #ff6b6b;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 8px;
+    cursor: pointer;
     font-size: 12px;
-}
-
-.legend-color {
-    width: 16px;
-    height: 16px;
-    border-radius: 4px;
 }
 
 /* Loading */
@@ -215,7 +224,7 @@ body {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(255,255,255,0.95);
+    background: rgba(0,0,0,0.8);
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -226,8 +235,8 @@ body {
 .spinner {
     width: 40px;
     height: 40px;
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #667eea;
+    border: 4px solid #333;
+    border-top: 4px solid #4fc3f7;
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 16px;
@@ -240,7 +249,7 @@ body {
 
 .loading-text {
     font-size: 16px;
-    color: #666;
+    color: #ccc;
 }
 
 /* Modal */
@@ -250,7 +259,7 @@ body {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0,0,0,0.5);
+    background: rgba(0,0,0,0.8);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -258,9 +267,9 @@ body {
 }
 
 .modal-content {
-    background: white;
-    border-radius: 16px;
-    padding: 20px;
+    background: #3a3a3a;
+    border-radius: 12px;
+    padding: 15px;
     max-width: 90%;
     max-height: 80%;
     overflow-y: auto;
@@ -271,9 +280,9 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     padding-bottom: 10px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid #4a4a4a;
 }
 
 .close-btn {
@@ -281,98 +290,101 @@ body {
     border: none;
     font-size: 24px;
     cursor: pointer;
-    color: #666;
+    color: #ccc;
 }
 
 /* Users List */
 .users-list {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 12px;
 }
 
 .user-item {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    padding: 15px;
-    border: 1px solid #e0e0e0;
-    border-radius: 12px;
-    gap: 15px;
+    padding: 12px;
+    border: 1px solid #4a4a4a;
+    border-radius: 8px;
+    gap: 12px;
+    background: #4a4a4a;
 }
 
 .user-info {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 4px;
     flex: 1;
 }
 
 .user-info strong {
-    color: #333;
-    font-size: 14px;
+    color: #fff;
+    font-size: 13px;
 }
 
 .user-info span {
-    color: #666;
-    font-size: 13px;
+    color: #ccc;
+    font-size: 12px;
 }
 
 .user-info small {
     color: #999;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 .user-actions {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     align-items: flex-end;
-    min-width: 200px;
+    min-width: 180px;
 }
 
 .employee-select {
-    padding: 8px 12px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    font-size: 12px;
+    padding: 6px 10px;
+    border: 1px solid #5a5a5a;
+    border-radius: 5px;
+    font-size: 11px;
     width: 100%;
+    background: #3a3a3a;
+    color: white;
 }
 
 .save-btn {
-    background: #2ecc71;
+    background: #4caf50;
     color: white;
     border: none;
-    padding: 8px 12px;
-    border-radius: 6px;
+    padding: 6px 10px;
+    border-radius: 5px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 11px;
     width: 100%;
 }
 
 .linked-info {
-    color: #27ae60;
-    font-size: 11px;
+    color: #4caf50;
+    font-size: 10px;
     text-align: center;
 }
 
 /* Error Message */
 .error-message {
     text-align: center;
-    padding: 40px;
+    padding: 30px;
 }
 
 .error-message h2 {
-    margin-bottom: 20px;
-    color: #e74c3c;
+    margin-bottom: 15px;
+    color: #f44336;
 }
 
 .error-message button {
-    background: #667eea;
+    background: #4fc3f7;
     color: white;
     border: none;
-    padding: 12px 24px;
-    border-radius: 8px;
+    padding: 10px 20px;
+    border-radius: 6px;
     cursor: pointer;
 }
 
@@ -389,14 +401,19 @@ body {
     
     .modal-content {
         width: 95%;
-        padding: 15px;
+        padding: 12px;
+    }
+    
+    .week-range {
+        min-width: 180px;
+        font-size: 13px;
     }
 }
 
 @media (max-width: 480px) {
     .calendar-day {
-        padding: 6px;
-        font-size: 12px;
+        padding: 4px;
+        font-size: 11px;
     }
     
     .shift-item {
@@ -404,15 +421,20 @@ body {
         padding: 2px 3px;
     }
     
-    .controls {
-        flex-direction: column;
-    }
-    
-    .month-selector {
-        width: 100%;
+    .week-range {
+        min-width: 150px;
+        font-size: 12px;
     }
     
     .user-actions {
         min-width: auto;
+    }
+    
+    .refresh-btn {
+        bottom: 15px;
+        right: 15px;
+        width: 45px;
+        height: 45px;
+        font-size: 16px;
     }
 }
