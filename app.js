@@ -21,10 +21,11 @@ let isAdmin = false;
 let employeeLinks = {};
 let allUsers = {};
 let allEmployees = [];
+let currentWeekStart = null;
+let isMonthView = false;
 
 // Элементы DOM
 const userName = document.getElementById('user-name');
-const monthSelector = document.getElementById('month-selector');
 const refreshBtn = document.getElementById('refresh-btn');
 const adminPanel = document.getElementById('admin-panel');
 const manageUsersBtn = document.getElementById('manage-users-btn');
@@ -35,6 +36,10 @@ const todayEmployee = document.getElementById('today-employee');
 const todayStatus = document.getElementById('today-status');
 const userModal = document.getElementById('user-modal');
 const usersList = document.getElementById('users-list');
+const prevWeekBtn = document.getElementById('prev-week');
+const nextWeekBtn = document.getElementById('next-week');
+const weekRange = document.getElementById('week-range');
+const toggleViewBtn = document.getElementById('toggle-view');
 
 // Инициализация приложения
 document.addEventListener('DOMContentLoaded', async function() {
@@ -71,11 +76,10 @@ async function initApp() {
         adminPanel.classList.remove('hidden');
     }
     
-    // Установка текущего месяца
+    // Установка текущей недели
     const today = new Date();
-    const currentMonth = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
-    monthSelector.value = currentMonth;
-
+    currentWeekStart = getWeekStartDate(today);
+    
     // Настройка обработчиков
     setupEventListeners();
 
@@ -90,7 +94,9 @@ function setupEventListeners() {
     if (manageUsersBtn) {
         manageUsersBtn.addEventListener('click', () => showUserManagement());
     }
-    monthSelector.addEventListener('change', () => renderCalendar());
+    prevWeekBtn.addEventListener('click', () => navigateWeek(-1));
+    nextWeekBtn.addEventListener('click', () => navigateWeek(1));
+    toggleViewBtn.addEventListener('click', () => toggleView());
 }
 
 // Регистрация текущего пользователя
@@ -143,6 +149,7 @@ async function loadData() {
         allEmployees = scheduleData.employees || [];
         
         // Обновляем интерфейс
+        updateWeekDisplay();
         renderCalendar();
         updateTodayInfo();
         
@@ -164,29 +171,159 @@ async function filterShiftsForUser() {
     }
 }
 
+// Навигация по неделям/месяцам
+function navigateWeek(direction) {
+    if (isMonthView) {
+        // Навигация по месяцам
+        const newDate = new Date(currentWeekStart);
+        newDate.setMonth(newDate.getMonth() + direction);
+        currentWeekStart = getWeekStartDate(newDate);
+    } else {
+        // Навигация по неделям
+        const daysToAdd = direction * 7;
+        currentWeekStart.setDate(currentWeekStart.getDate() + daysToAdd);
+    }
+    
+    updateWeekDisplay();
+    renderCalendar();
+}
+
+// Переключение между видом недели и месяца
+function toggleView() {
+    isMonthView = !isMonthView;
+    toggleViewBtn.textContent = isMonthView ? '▲' : '▼';
+    updateWeekDisplay();
+    renderCalendar();
+}
+
+// Обновление отображения диапазона недели/месяца
+function updateWeekDisplay() {
+    if (isMonthView) {
+        // Показываем месяц
+        const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 
+                          'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+        const month = currentWeekStart.getMonth();
+        const year = currentWeekStart.getFullYear();
+        weekRange.textContent = `${monthNames[month]} ${year}`;
+    } else {
+        // Показываем неделю
+        const weekEnd = new Date(currentWeekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        
+        const formatDate = (date) => {
+            return date.toLocaleDateString('ru-RU', { 
+                day: 'numeric', 
+                month: 'short' 
+            });
+        };
+        
+        weekRange.textContent = `${formatDate(currentWeekStart)} - ${formatDate(weekEnd)}`;
+    }
+}
+
+// Получение даты начала недели для указанной даты
+function getWeekStartDate(date) {
+    const dayOfWeek = date.getDay();
+    const diff = date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    return new Date(date.setDate(diff));
+}
+
 // Отображение календаря
 function renderCalendar() {
     if (!scheduleData?.shifts) return;
     
-    const selectedMonth = monthSelector.value;
-    const [year, month] = selectedMonth.split('-').map(Number);
-    
-    // Фильтруем смены по выбранному месяцу
-    const monthShifts = scheduleData.shifts.filter(shift => {
-        if (!shift.date) return false;
-        const shiftDate = new Date(shift.date);
-        return shiftDate.getFullYear() === year && 
-               shiftDate.getMonth() + 1 === month;
-    });
-    
     // Очищаем календарь
     calendarGrid.innerHTML = '';
     
+    if (isMonthView) {
+        renderMonthView();
+    } else {
+        renderWeekView();
+    }
+}
+
+// Отображение вида недели
+function renderWeekView() {
+    const weekDays = [];
+    const currentDate = new Date(currentWeekStart);
+    
+    // Создаем массив дней недели
+    for (let i = 0; i < 7; i++) {
+        const dayDate = new Date(currentDate);
+        dayDate.setDate(currentDate.getDate() + i);
+        weekDays.push(dayDate);
+    }
+    
+    // Добавляем заголовки дней
+    const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    dayNames.forEach(name => {
+        const dayHeader = document.createElement('div');
+        dayHeader.className = 'calendar-day-header';
+        dayHeader.textContent = name;
+        calendarGrid.appendChild(dayHeader);
+    });
+    
+    // Добавляем дни недели
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    weekDays.forEach(dayDate => {
+        const dayElement = document.createElement('div');
+        const dateStr = dayDate.toISOString().split('T')[0];
+        
+        // Проверяем, сегодня ли это
+        const dayCopy = new Date(dayDate);
+        dayCopy.setHours(0, 0, 0, 0);
+        if (dayCopy.getTime() === today.getTime()) {
+            dayElement.classList.add('today');
+        }
+        
+        dayElement.className = 'calendar-day';
+        
+        // Добавляем номер дня
+        const dayNumber = document.createElement('div');
+        dayNumber.className = 'day-number';
+        dayNumber.textContent = dayDate.getDate();
+        dayElement.appendChild(dayNumber);
+        
+        // Смены для этого дня
+        const dayShifts = scheduleData.shifts.filter(s => s.date === dateStr);
+        
+        if (dayShifts.length > 0) {
+            const shiftsContainer = document.createElement('div');
+            shiftsContainer.className = 'shifts-container';
+            
+            dayShifts.forEach(shift => {
+                const shiftItem = document.createElement('div');
+                shiftItem.className = 'shift-item';
+                
+                const hoursSpan = document.createElement('span');
+                hoursSpan.className = 'shift-hours';
+                hoursSpan.textContent = `${shift.hours}ч`;
+                
+                shiftItem.appendChild(hoursSpan);
+                shiftsContainer.appendChild(shiftItem);
+            });
+            
+            dayElement.appendChild(shiftsContainer);
+        }
+        
+        calendarGrid.appendChild(dayElement);
+    });
+}
+
+// Отображение вида месяца
+function renderMonthView() {
+    const year = currentWeekStart.getFullYear();
+    const month = currentWeekStart.getMonth();
+    
     // Первый день месяца
-    const firstDay = new Date(year, month - 1, 1);
-    const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
     
     // Пустые ячейки перед первым днем
+    const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+    
     for (let i = 0; i < startDay; i++) {
         const emptyDay = document.createElement('div');
         emptyDay.className = 'calendar-day empty';
@@ -194,16 +331,16 @@ function renderCalendar() {
     }
     
     // Дни месяца
-    const daysInMonth = new Date(year, month, 0).getDate();
+    const daysInMonth = lastDay.getDate();
     const today = new Date();
     
     for (let day = 1; day <= daysInMonth; day++) {
         const dayElement = document.createElement('div');
-        const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+        const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
         
         // Проверяем, сегодня ли это
         if (today.getDate() === day && 
-            today.getMonth() + 1 === month && 
+            today.getMonth() === month && 
             today.getFullYear() === year) {
             dayElement.classList.add('today');
         }
@@ -217,7 +354,7 @@ function renderCalendar() {
         dayElement.appendChild(dayNumber);
         
         // Смены для этого дня
-        const dayShifts = monthShifts.filter(s => s.date === dateStr);
+        const dayShifts = scheduleData.shifts.filter(s => s.date === dateStr);
         
         if (dayShifts.length > 0) {
             const shiftsContainer = document.createElement('div');
@@ -225,16 +362,13 @@ function renderCalendar() {
             
             dayShifts.forEach(shift => {
                 const shiftItem = document.createElement('div');
-                shiftItem.className = `shift-item shift-${getShiftTypeClass(shift.hours)}`;
+                shiftItem.className = 'shift-item';
                 
                 const hoursSpan = document.createElement('span');
                 hoursSpan.className = 'shift-hours';
                 hoursSpan.textContent = `${shift.hours}ч`;
                 
-                const shiftText = document.createTextNode(' Смена');
-                
                 shiftItem.appendChild(hoursSpan);
-                shiftItem.appendChild(shiftText);
                 shiftsContainer.appendChild(shiftItem);
             });
             
@@ -262,7 +396,7 @@ function updateTodayInfo() {
     
     if (todayShifts.length > 0) {
         const todayShift = todayShifts[0];
-        todayStatus.textContent = `Есть смена: ${todayShift.hours} часов (${todayShift.type || 'смена'})`;
+        todayStatus.textContent = `Есть смена: ${todayShift.hours} часов`;
         todayStatus.className = 'has-shift';
     } else {
         todayStatus.textContent = 'Сегодня смены нет';
@@ -351,16 +485,6 @@ async function saveEmployeeLink(telegramId) {
 // Закрытие модального окна
 function closeModal() {
     userModal.classList.add('hidden');
-}
-
-// Получение класса типа смены
-function getShiftTypeClass(hours) {
-    if (hours <= 4) return 'short';
-    if (hours <= 8) return 'day';
-    if (hours <= 11) return 'full';
-    if (hours === 12) return 'extended';
-    if (hours > 12) return 'long';
-    return 'full';
 }
 
 // Вспомогательные функции
