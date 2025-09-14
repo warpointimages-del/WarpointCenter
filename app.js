@@ -1,5 +1,5 @@
 const tg = window.Telegram.WebApp;
-const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz90MMqW6GzaF8mtS0tly4pOoKbV244DYmZfDHbuNLvk92XnIab_6PXemZBdmcNCuHUXQ/exec';
+const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwl2T5Gq29iZvrTosmqBYSO0g10W4AOH0KGFS3mCkV9jcj3KLDmoBw74hFSsElZcQJhQw/exec';
 
 // Элементы DOM
 const userName = document.getElementById('user-name');
@@ -78,7 +78,12 @@ async function loadMonthData() {
             throw new Error(`Ошибка сервера: ${idsResponse.status}`);
         }
         
-        employeeIds = await idsResponse.json();
+        const idsData = await idsResponse.json();
+        if (!idsData.success) {
+            throw new Error(idsData.error || 'Ошибка получения ID сотрудников');
+        }
+        
+        employeeIds = idsData.data;
         console.log('Найдены ID сотрудников:', employeeIds);
         
         if (employeeIds.length === 0) {
@@ -96,16 +101,18 @@ async function loadMonthData() {
                 const shiftsResponse = await fetch(`${APP_SCRIPT_URL}?function=getShiftsByMonth&employeeId=${id}&month=${selectedMonth}`);
                 
                 if (shiftsResponse.ok) {
-                    const shifts = await shiftsResponse.json();
-                    console.log(`Смены для ID ${id} за ${selectedMonth}:`, shifts);
-                    
-                    const shiftsWithId = shifts.map(shift => ({
-                        ...shift,
-                        employeeId: id,
-                        isMainUser: true
-                    }));
-                    
-                    allShifts.push(...shiftsWithId);
+                    const shiftsData = await shiftsResponse.json();
+                    if (shiftsData.success) {
+                        console.log(`Смены для ID ${id} за ${selectedMonth}:`, shiftsData.data);
+                        
+                        const shiftsWithId = shiftsData.data.map(shift => ({
+                            ...shift,
+                            employeeId: id,
+                            isMainUser: true
+                        }));
+                        
+                        allShifts.push(...shiftsWithId);
+                    }
                 }
             } catch (error) {
                 console.warn(`Ошибка загрузки смен для ID ${id}:`, error);
@@ -131,6 +138,7 @@ function renderCalendar() {
     
     // Фильтруем смены по выбранному месяцу
     const monthShifts = allShifts.filter(shift => {
+        if (!shift.date) return false;
         const shiftDate = new Date(shift.date);
         return shiftDate.getFullYear() === year && 
                shiftDate.getMonth() + 1 === month;
@@ -180,14 +188,7 @@ function renderCalendar() {
             const shiftsContainer = document.createElement('div');
             shiftsContainer.className = 'shifts-container';
             
-            // Сортируем: сначала смены текущего пользователя
-            const sortedShifts = [...dayShifts].sort((a, b) => {
-                if (a.isMainUser && !b.isMainUser) return -1;
-                if (!a.isMainUser && b.isMainUser) return 1;
-                return 0;
-            });
-            
-            sortedShifts.forEach(shift => {
+            dayShifts.forEach(shift => {
                 const shiftItem = document.createElement('div');
                 shiftItem.className = `shift-item ${shift.isMainUser ? 'main-user' : 'other-user'} shift-${getShiftTypeClass(shift.hours)}`;
                 
@@ -226,7 +227,7 @@ function updateTodayInfo() {
     
     if (todayShifts.length > 0) {
         const todayShift = todayShifts[0];
-        todayStatus.textContent = `Есть смена: ${todayShift.hours} часов (${todayShift.shiftType || 'смена'})`;
+        todayStatus.textContent = `Есть смена: ${todayShift.hours} часов (${todayShift.shift_type || 'смена'})`;
         todayStatus.className = 'has-shift';
     } else {
         todayStatus.textContent = 'Сегодня смены нет';
@@ -247,16 +248,4 @@ function getShiftTypeClass(hours) {
 // Вспомогательные функции
 function showLoading(show) {
     loading.classList.toggle('hidden', !show);
-}
-
-function logout() {
-    localStorage.removeItem('tg_user_data');
-    alert('Для входа снова откройте приложение в Telegram');
-}
-
-// Отправка данных в бота
-function sendDataToBot(data) {
-    if (tg && tg.sendData) {
-        tg.sendData(JSON.stringify(data));
-    }
 }
