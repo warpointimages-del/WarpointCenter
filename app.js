@@ -1,24 +1,40 @@
-import { loadScheduleData, saveUserData, loadUserData } from './firebase.js';
+import { 
+    loadScheduleData, 
+    saveUserData, 
+    loadUserData, 
+    loadAllUsers, 
+    loadEmployeeLinks, 
+    saveEmployeeLink, 
+    registerUser, 
+    updateUserLastSeen 
+} from './firebase.js';
 
 // Конфигурация
-const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzTezvV4Wa9L3zGy5qMilIVvFQRWH0h4YPiyUyJm_wI7_SSlgFZYcdhPYMCMUqWZkuNPw/exec';
+const ADMIN_ID = 1999947340;
 
 // Глобальные переменные
 const tg = window.Telegram.WebApp;
 let currentUser = null;
 let scheduleData = null;
 let userData = null;
+let isAdmin = false;
+let employeeLinks = {};
+let allUsers = {};
+let allEmployees = [];
 
 // Элементы DOM
 const userName = document.getElementById('user-name');
 const monthSelector = document.getElementById('month-selector');
 const refreshBtn = document.getElementById('refresh-btn');
-const forceUpdateBtn = document.getElementById('force-update-btn');
+const adminPanel = document.getElementById('admin-panel');
+const manageUsersBtn = document.getElementById('manage-users-btn');
 const calendarGrid = document.getElementById('calendar-grid');
 const loading = document.getElementById('loading');
 const todayDate = document.getElementById('today-date');
 const todayEmployee = document.getElementById('today-employee');
 const todayStatus = document.getElementById('today-status');
+const userModal = document.getElementById('user-modal');
+const usersList = document.getElementById('users-list');
 
 // Инициализация приложения
 document.addEventListener('DOMContentLoaded', async function() {
@@ -49,6 +65,12 @@ async function initApp() {
     // Настройка интерфейса
     userName.textContent = `${currentUser.first_name}${currentUser.last_name ? ' ' + currentUser.last_name : ''}`;
     
+    // Проверка прав админа
+    isAdmin = currentUser.id == ADMIN_ID;
+    if (isAdmin) {
+        adminPanel.classList.remove('hidden');
+    }
+    
     // Установка текущего месяца
     const today = new Date();
     const currentMonth = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
@@ -57,15 +79,40 @@ async function initApp() {
     // Настройка обработчиков
     setupEventListeners();
 
-    // Загрузка данных
+    // Регистрация и загрузка данных
+    await registerCurrentUser();
     await loadData();
 }
 
 // Настройка обработчиков событий
 function setupEventListeners() {
     refreshBtn.addEventListener('click', () => loadData());
-    forceUpdateBtn.addEventListener('click', () => forceUpdate());
+    if (manageUsersBtn) {
+        manageUsersBtn.addEventListener('click', () => showUserManagement());
+    }
     monthSelector.addEventListener('change', () => renderCalendar());
+}
+
+// Регистрация текущего пользователя
+async function registerCurrentUser() {
+    try {
+        const existingUser = await loadUserData(currentUser.id);
+        
+        if (!existingUser) {
+            await registerUser(currentUser.id, {
+                telegramId: currentUser.id,
+                username: currentUser.username || '',
+                firstName: currentUser.first_name,
+                lastName: currentUser.last_name || '',
+                isAdmin: currentUser.id == ADMIN_ID
+            });
+            console.log('Новый пользователь зарегистрирован');
+        } else {
+            await updateUserLastSeen(currentUser.id);
+        }
+    } catch (error) {
+        console.error('Ошибка регистрации:', error);
+    }
 }
 
 // Загрузка данных
@@ -77,12 +124,23 @@ async function loadData() {
         scheduleData = await loadScheduleData();
         
         if (!scheduleData) {
-            showErrorMessage('Данные не найдены. Попробуйте синхронизировать.');
+            showErrorMessage('Данные не найдены. Дождитесь синхронизации.');
             return;
         }
 
+        // Загружаем привязки сотрудников
+        employeeLinks = await loadEmployeeLinks();
+        
         // Загружаем данные пользователя
         userData = await loadUserData(currentUser.id) || {};
+        
+        // Для обычных пользователей - фильтруем смены
+        if (!isAdmin) {
+            await filterShiftsForUser();
+        }
+        
+        // Сохраняем список сотрудников для админки
+        allEmployees = scheduleData.employees || [];
         
         // Обновляем интерфейс
         renderCalendar();
@@ -96,28 +154,13 @@ async function loadData() {
     }
 }
 
-// Принудительная синхронизация
-async function forceUpdate() {
-    showLoading(true);
-    
-    try {
-        // Отправляем запрос на обновление в Google Script
-        const response = await fetch(`${APP_SCRIPT_URL}?action=forceUpdate&telegramId=${currentUser.id}`);
-        const result = await response.json();
-        
-        if (result.success) {
-            // Перезагружаем данные после синхронизации
-            await loadData();
-            alert('✅ Данные синхронизированы!');
-        } else {
-            throw new Error(result.error || 'Ошибка синхронизации');
-        }
-        
-    } catch (error) {
-        console.error('Ошибка синхронизации:', error);
-        alert('❌ Ошибка синхронизации: ' + error.message);
-    } finally {
-        showLoading(false);
+// Фильтрация смен для обычного пользователя
+async function filterShiftsForUser() {
+    const userLink = employeeLinks[currentUser.id];
+    if (userLink && scheduleData?.shifts) {
+        scheduleData.shifts = scheduleData.shifts.filter(
+            shift => shift.employeeId == userLink.employeeId
+        );
     }
 }
 
@@ -227,6 +270,89 @@ function updateTodayInfo() {
     }
 }
 
+// Управление пользователями
+async function showUserManagement() {
+    showLoading(true);
+    
+    try {
+        // Загружаем всех пользователей
+        allUsers = await loadAllUsers();
+        
+        // Показываем модальное окно
+        userModal.classList.remove('hidden');
+        renderUsersList();
+        
+    } catch (error) {
+        console.error('Ошибка загрузки пользователей:', error);
+        alert('Ошибка загрузки данных пользователей');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Отрисовка списка пользователей
+function renderUsersList() {
+    usersList.innerHTML = Object.entries(allUsers)
+        .sort(([idA, userA], [idB, userB]) => 
+            new Date(userB.lastSeen) - new Date(userA.lastSeen)
+        )
+        .map(([userId, userData]) => {
+            const userLink = employeeLinks[userId];
+            const linkedEmployee = userLink ? allEmployees.find(e => e.id == userLink.employeeId) : null;
+            
+            return `
+                <div class="user-item">
+                    <div class="user-info">
+                        <strong>ID: ${userId}</strong>
+                        <span>@${userData.username || 'без username'}</span>
+                        <span>${userData.firstName} ${userData.lastName || ''}</span>
+                        <small>Последний вход: ${new Date(userData.lastSeen).toLocaleString()}</small>
+                    </div>
+                    <div class="user-actions">
+                        <select class="employee-select" data-user-id="${userId}">
+                            <option value="">-- Выберите сотрудника --</option>
+                            ${allEmployees.map(emp => `
+                                <option value="${emp.id}" ${userLink?.employeeId == emp.id ? 'selected' : ''}>
+                                    ${emp.id} - ${emp.name}
+                                </option>
+                            `).join('')}
+                        </select>
+                        <button class="save-btn" onclick="saveEmployeeLink('${userId}')">💾</button>
+                        ${linkedEmployee ? `<span class="linked-info">Привязан к: ${linkedEmployee.name}</span>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+}
+
+// Сохранение привязки сотрудника
+async function saveEmployeeLink(telegramId) {
+    const select = document.querySelector(`.employee-select[data-user-id="${telegramId}"]`);
+    const employeeId = select.value;
+    
+    if (!employeeId) {
+        alert('Выберите сотрудника');
+        return;
+    }
+    
+    try {
+        await saveEmployeeLink(telegramId, employeeId);
+        alert('✅ Сотрудник привязан!');
+        
+        // Обновляем локальные данные
+        employeeLinks = await loadEmployeeLinks();
+        renderUsersList();
+        
+    } catch (error) {
+        alert('❌ Ошибка сохранения: ' + error.message);
+    }
+}
+
+// Закрытие модального окна
+function closeModal() {
+    userModal.classList.add('hidden');
+}
+
 // Получение класса типа смены
 function getShiftTypeClass(hours) {
     if (hours <= 4) return 'short';
@@ -252,20 +378,6 @@ function showErrorMessage(message) {
     `;
 }
 
-// Сохранение настроек пользователя (пример)
-async function saveUserSettings(settings) {
-    try {
-        await saveUserData(currentUser.id, {
-            ...userData,
-            settings: settings,
-            lastUpdated: new Date().toISOString()
-        });
-        return true;
-    } catch (error) {
-        console.error('Ошибка сохранения настроек:', error);
-        return false;
-    }
-}
-
-// Глобальные функции для кнопок
-window.forceUpdate = forceUpdate;
+// Глобальные функции
+window.saveEmployeeLink = saveEmployeeLink;
+window.closeModal = closeModal;
