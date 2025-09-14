@@ -1,1 +1,650 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мой график смен</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8f9fa;
+            min-height: 100vh;
+            padding: 16px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Header Styles */
+        .header {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .user-info {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .month-selector {
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            background: white;
+            font-size: 14px;
+            font-weight: 500;
+            min-width: 150px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(118, 75, 162, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(118, 75, 162, 0.4);
+        }
+
+        /* Calendar */
+        .calendar {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+
+        .calendar-header {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            text-align: center;
+            color: #666;
+            padding: 0 4px;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            padding: 8px 4px;
+            border: 2px solid #f0f0f0;
+            background: white;
+            position: relative;
+            overflow: hidden;
+            min-height: 80px;
+        }
+
+        .calendar-day.empty {
+            background: transparent;
+            border: none;
+        }
+
+        .calendar-day.today {
+            border-color: #ff6b6b;
+            background: linear-gradient(135deg, #fff5f5 0%, #ffecec 100%);
+        }
+
+        .day-number {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 6px;
+            z-index: 2;
+            align-self: flex-start;
+        }
+
+        /* Shift Items in Calendar */
+        .shifts-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            align-items: center;
+            z-index: 1;
+        }
+
+        .shift-item {
+            width: 100%;
+            padding: 3px 5px;
+            border-radius: 5px;
+            font-size: 10px;
+            font-weight: 500;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .shift-item.main-user {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            order: -1; /* Сдвигаем вверх */
+        }
+
+        .shift-item.other-user {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            color: #666;
+        }
+
+        .shift-hours {
+            font-weight: bold;
+            margin-right: 2px;
+        }
+
+        /* Shift Type Colors */
+        .shift-short { background: #ff9f43 !important; color: white !important; } /* Короткая смена */
+        .shift-day { background: #54a0ff !important; color: white !important; }   /* Дневная смена */
+        .shift-full { background: #2ecc71 !important; color: white !important; }  /* Полная смена */
+        .shift-extended { background: #9b59b6 !important; color: white !important; } /* Расширенная смена */
+        .shift-long { background: #e74c3c !important; color: white !important; }  /* Длинная смена */
+
+        /* Loading */
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 16px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        /* Legend */
+        .legend {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-top: 20px;
+        }
+
+        .legend-title {
+            font-weight: 600;
+            margin-bottom: 12px;
+            text-align: center;
+            color: #333;
+        }
+
+        .legend-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        .today-info {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        margin-bottom: 20px;
+        text-align: center;
+        }
+        
+        .today-info h3 {
+            color: #667eea;
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+        
+        .today-info p {
+            margin: 8px 0;
+            font-size: 16px;
+        }
+        
+        #today-status {
+            font-weight: 600;
+        }
+        
+        #today-status.has-shift {
+            color: #2ecc71;
+        }
+        
+        #today-status.no-shift {
+            color: #e74c3c;
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .calendar-day {
+                padding: 6px 2px;
+                min-height: 70px;
+            }
+            
+            .day-number {
+                font-size: 12px;
+            }
+            
+            .shift-item {
+                font-size: 9px;
+                padding: 2px 3px;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .month-selector {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .calendar-day {
+                min-height: 65px;
+            }
+            
+            .shift-item {
+                font-size: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📅 График смен</h1>
+            <div class="user-info">
+                Привет, <span id="user-name"></span>!
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <select id="month-selector" class="month-selector">
+                <option value="2025-01">Январь 2025</option>
+                <option value="2025-02">Февраль 2025</option>
+                <option value="2025-03">Март 2025</option>
+                <option value="2025-04">Апрель 2025</option>
+                <option value="2025-05">Май 2025</option>
+                <option value="2025-06">Июнь 2025</option>
+                <option value="2025-07">Июль 2025</option>
+                <option value="2025-08">Август 2025</option>
+                <option value="2025-09">Сентябрь 2025</option>
+                <option value="2025-10">Октябрь 2025</option>
+                <option value="2025-11">Ноябрь 2025</option>
+                <option value="2025-12">Декабрь 2025</option>
+            </select>
+            <button id="refresh-btn" class="refresh-btn">🔄 Обновить</button>
+        </div>
+
+        <!-- Calendar -->
+        <div class="calendar">
+            <div class="calendar-header">
+                <div>Пн</div>
+                <div>Вт</div>
+                <div>Ср</div>
+                <div>Чт</div>
+                <div>Пт</div>
+                <div>Сб</div>
+                <div>Вс</div>
+            </div>
+            <div id="calendar-grid" class="calendar-grid"></div>
+        </div>
+        <!-- Today Info -->
+            <div class="today-info">
+                <h3>Сегодня: <span id="today-date"></span></h3>
+                <p>Сотрудник: <span id="today-employee"></span></p>
+                <p>Статус: <span id="today-status"></span></p>
+            </div>
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-title">Обозначения смен</div>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff9f43;"></div>
+                    <span>Короткая (1-4ч)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #54a0ff;"></div>
+                    <span>Дневная (5-8ч)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #2ecc71;"></div>
+                    <span>Полная (9-11ч)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #9b59b6;"></div>
+                    <span>Расширенная (12ч)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #e74c3c;"></div>
+                    <span>Длинная (12+ч)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #667eea;"></div>
+                    <span>Ваши смены</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p class="loading-text">Загрузка данных...</p>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz9d8Ga5wlPozchrrDn47Uuuh206xcmi_nRagAK_kz5WqCabUICCBZQ45Pshr_761Jr/exec';
+
+        // Элементы DOM
+        const userName = document.getElementById('user-name');
+        const monthSelector = document.getElementById('month-selector');
+        const refreshBtn = document.getElementById('refresh-btn');
+        const calendarGrid = document.getElementById('calendar-grid');
+        const loading = document.getElementById('loading');
+
+        let currentUser = null;
+        let employeeIds = [];
+        let allShifts = [];
+
+        // Инициализация приложения
+        document.addEventListener('DOMContentLoaded', function() {
+            if (tg) {
+                tg.expand();
+                tg.ready();
+                tg.enableClosingConfirmation();
+            }
+            initApp();
+        });
+
+        // Инициализация приложения
+        function initApp() {
+            // Авторизация через Telegram
+            if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                currentUser = tg.initDataUnsafe.user;
+                localStorage.setItem('tg_user_data', JSON.stringify(currentUser));
+            } else {
+                // Fallback: проверяем localStorage
+                const savedUser = localStorage.getItem('tg_user_data');
+                if (savedUser) {
+                    currentUser = JSON.parse(savedUser);
+                } else {
+                    // Если нет данных - показываем сообщение
+                    document.body.innerHTML = `
+                        <div style="padding: 40px; text-align: center;">
+                            <h2>Откройте приложение в Telegram</h2>
+                            <p style="margin-top: 10px; color: #666;">Это приложение работает только внутри Telegram</p>
+                        </div>
+                    `;
+                    return;
+                }
+            }
+
+            // Показываем интерфейс
+            userName.textContent = `${currentUser.first_name}${currentUser.last_name ? ' ' + currentUser.last_name : ''}`;
+            
+            // Настройка обработчиков
+            refreshBtn.addEventListener('click', loadAllData);
+            monthSelector.addEventListener('change', renderCalendar);
+
+            // Устанавливаем текущий месяц
+            const today = new Date();
+            const currentMonth = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
+            monthSelector.value = currentMonth;
+
+            // Загружаем данные
+            loadAllData();
+        }
+
+        // Загрузка всех данных
+        async function loadAllData() {
+            showLoading(true);
+            
+            try {
+                console.log('Загрузка данных для TG ID:', currentUser.id);
+                
+                // 1. Получаем ID сотрудников
+                const idsResponse = await fetch(`${APP_SCRIPT_URL}?function=getEmployeeIds&telegramId=${currentUser.id}`);
+                
+                if (!idsResponse.ok) {
+                    throw new Error(`Ошибка сервера: ${idsResponse.status}`);
+                }
+                
+                employeeIds = await idsResponse.json();
+                console.log('Найдены ID сотрудников:', employeeIds);
+                
+                if (employeeIds.length === 0) {
+                    alert('Сотрудник не найден. Обратитесь к администратору.');
+                    showLoading(false);
+                    return;
+                }
+                
+                // 2. Загружаем ВСЕ смены (нужно добавить функцию getAllShifts в Google Apps Script)
+                // Временное решение: загружаем только смены текущего пользователя
+                allShifts = [];
+                for (const id of employeeIds) {
+                    try {
+                        const shiftsResponse = await fetch(`${APP_SCRIPT_URL}?function=getShiftsByEmployeeId&employeeId=${id}`);
+                        
+                        if (shiftsResponse.ok) {
+                            const shifts = await shiftsResponse.json();
+                            console.log(`Смены для ID ${id}:`, shifts);
+                            
+                            // Добавляем employeeId к каждой смене
+                            const shiftsWithId = shifts.map(shift => ({
+                                ...shift,
+                                employeeId: id,
+                                isMainUser: true // Помечаем как смены текущего пользователя
+                            }));
+                            
+                            allShifts.push(...shiftsWithId);
+                        }
+                    } catch (error) {
+                        console.warn(`Ошибка загрузки смен для ID ${id}:`, error);
+                    }
+                }
+                
+                console.log('Всего смен загружено:', allShifts.length);
+                
+                renderCalendar();
+                
+            } catch (error) {
+                console.error('Ошибка загрузки:', error);
+                alert('Ошибка загрузки данных: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Отображение календаря
+        function renderCalendar() {
+            const selectedMonth = monthSelector.value;
+            const [year, month] = selectedMonth.split('-').map(Number);
+            
+            // Фильтруем смены по выбранному месяцу
+            const monthShifts = allShifts.filter(shift => {
+                const shiftDate = new Date(shift.date);
+                return shiftDate.getFullYear() === year && 
+                       shiftDate.getMonth() + 1 === month;
+            });
+            
+            // Создаем календарь
+            calendarGrid.innerHTML = '';
+            
+            // Первый день месяца
+            const firstDay = new Date(year, month - 1, 1);
+            const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+            
+            // Пустые ячейки перед первым днем
+            for (let i = 0; i < startDay; i++) {
+                const emptyDay = document.createElement('div');
+                emptyDay.className = 'calendar-day empty';
+                calendarGrid.appendChild(emptyDay);
+            }
+            
+            // Дни месяца
+            const daysInMonth = new Date(year, month, 0).getDate();
+            const today = new Date();
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayElement = document.createElement('div');
+                const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+                
+                // Проверяем, сегодня ли это
+                if (today.getDate() === day && 
+                    today.getMonth() + 1 === month && 
+                    today.getFullYear() === year) {
+                    dayElement.classList.add('today');
+                }
+                
+                dayElement.className = 'calendar-day';
+                
+                // Добавляем номер дня
+                const dayNumber = document.createElement('div');
+                dayNumber.className = 'day-number';
+                dayNumber.textContent = day;
+                dayElement.appendChild(dayNumber);
+                
+                // Смены для этого дня
+                const dayShifts = monthShifts.filter(s => s.date === dateStr);
+                
+                if (dayShifts.length > 0) {
+                    const shiftsContainer = document.createElement('div');
+                    shiftsContainer.className = 'shifts-container';
+                    
+                    // Сортируем: сначала смены текущего пользователя
+                    const sortedShifts = [...dayShifts].sort((a, b) => {
+                        if (a.isMainUser && !b.isMainUser) return -1;
+                        if (!a.isMainUser && b.isMainUser) return 1;
+                        return 0;
+                    });
+                    
+                    sortedShifts.forEach(shift => {
+                        const shiftItem = document.createElement('div');
+                        shiftItem.className = `shift-item ${shift.isMainUser ? 'main-user' : 'other-user'} shift-${getShiftTypeClass(shift.hours)}`;
+                        
+                        const hoursSpan = document.createElement('span');
+                        hoursSpan.className = 'shift-hours';
+                        hoursSpan.textContent = `${shift.hours}ч`;
+                        
+                        const shiftText = document.createTextNode(shift.isMainUser ? ' Ваша смена' : ' Смена');
+                        
+                        shiftItem.appendChild(hoursSpan);
+                        shiftItem.appendChild(shiftText);
+                        shiftsContainer.appendChild(shiftItem);
+                    });
+                    
+                    dayElement.appendChild(shiftsContainer);
+                }
+                
+                calendarGrid.appendChild(dayElement);
+            }
+        }
+
+        // Получение класса типа смены
+        function getShiftTypeClass(hours) {
+            if (hours <= 4) return 'short';
+            if (hours <= 8) return 'day';
+            if (hours <= 11) return 'full';
+            if (hours === 12) return 'extended';
+            if (hours > 12) return 'long';
+            return 'full';
+        }
+
+        // Вспомогательные функции
+        function showLoading(show) {
+            loading.classList.toggle('hidden', !show);
+        }
+    </script>
+</body>
+</html>
