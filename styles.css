@@ -437,4 +437,62 @@ body {
         height: 45px;
         font-size: 16px;
     }
+/* Добавьте эти стили в конец файла */
+
+.calendar-day-header {
+    text-align: center;
+    font-weight: bold;
+    padding: 5px;
+    background: #4a4a4a;
+    border-radius: 5px;
+}
+
+.no-data {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 20px;
+    color: #ccc;
+}
+
+.info-message {
+    background: #4a4a4a;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    margin: 15px 0;
+}
+
+.info-message button {
+    background: #4fc3f7;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.error-message {
+    text-align: center;
+    padding: 30px;
+}
+
+.error-message h2 {
+    margin-bottom: 15px;
+    color: #f44336;
+}
+
+.error-message p {
+    margin-bottom: 15px;
+    color: #ccc;
+}
+
+.error-message button {
+    background: #4fc3f7;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+}
 }
