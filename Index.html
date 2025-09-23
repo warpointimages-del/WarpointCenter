@@ -3,76 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📅 Мой График Смен</title>
+    <title>Warpoint Center</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js"></script>
-    <link rel="stylesheet" href="styles.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background-color: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .container {
+            padding: 20px;
+            height: 100vh;
+        }
+        
+        .tab-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #2d2d2d;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px;
+            border-top: 1px solid #444;
+        }
+        
+        .tab-button {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 12px;
+            padding: 10px;
+            cursor: pointer;
+        }
+        
+        .tab-button.active {
+            color: #007aff;
+        }
+        
+        .page {
+            display: none;
+            height: calc(100vh - 60px);
+            overflow-y: auto;
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        .waiting-message {
+            text-align: center;
+            margin-top: 50px;
+            font-size: 18px;
+            color: #888;
+        }
+        
+        .admin-panel {
+            background: #2d2d2d;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+        }
+        
+        .user-list {
+            margin-top: 10px;
+        }
+        
+        .user-item {
+            padding: 10px;
+            border-bottom: 1px solid #444;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <h1>📅 График Смен</h1>
-            <div class="user-info">
-                Привет, <span id="user-name"></span>!
+        <!-- Главная страница -->
+        <div id="home-page" class="page active">
+            <h2>График смен</h2>
+            <div id="schedule-content">
+                <!-- Сюда будет загружаться график -->
             </div>
         </div>
-
-        <!-- Today Info -->
-        <div class="today-info">
-            <h3>Сегодня: <span id="today-date"></span></h3>
-            <p>Сотрудник: <span id="today-employee"></span></p>
-            <p>Статус: <span id="today-status"></span></p>
-        </div>
-
-        <!-- Week Navigation -->
-        <div class="week-navigation">
-            <button id="prev-week" class="nav-btn">◀</button>
-            <span id="week-range" class="week-range"></span>
-            <button id="next-week" class="nav-btn">▶</button>
-            <button id="toggle-view" class="toggle-btn">▼</button>
-        </div>
-
-        <!-- Calendar -->
-        <div class="calendar">
-            <div class="calendar-header">
-                <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Вс</div>
+        
+        <!-- Профиль -->
+        <div id="profile-page" class="page">
+            <h2>Мой профиль</h2>
+            <div id="profile-content">
+                <!-- Сюда будет загружаться профиль -->
             </div>
-            <div id="calendar-grid" class="calendar-grid"></div>
         </div>
-
-        <!-- Refresh Button -->
-        <button id="refresh-btn" class="refresh-btn">🔄</button>
-
-        <!-- Admin Panel -->
-        <div id="admin-panel" class="admin-panel hidden">
-            <button id="manage-users-btn" class="admin-btn">👥 Управление сотрудниками</button>
-        </div>
-
-        <!-- Loading -->
-        <div id="loading" class="loading hidden">
-            <div class="spinner"></div>
-            <p class="loading-text">Загрузка данных...</p>
-        </div>
-    </div>
-
-    <!-- User Management Modal -->
-    <div id="user-modal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>👥 Управление сотрудниками</h3>
-                <button class="close-btn" onclick="closeModal()">×</button>
+        
+        <!-- Задачи -->
+        <div id="tasks-page" class="page">
+            <h2>Задачи и рейтинг</h2>
+            <div id="tasks-content">
+                <!-- Сюда будут загружаться задачи -->
             </div>
-            <div class="modal-body">
-                <div class="users-list" id="users-list">
-                    <!-- Users will be loaded here -->
+        </div>
+        
+        <!-- Сообщение об ожидании -->
+        <div id="waiting-page" class="page">
+            <div class="waiting-message">
+                Ожидайте пока Ваш профиль будет зарегистрирован
+            </div>
+        </div>
+        
+        <!-- Админ панель -->
+        <div id="admin-panel" style="display: none;">
+            <h3>Панель администратора</h3>
+            <div class="admin-panel">
+                <h4>Пользователи ожидающие регистрации</h4>
+                <div id="pending-users" class="user-list">
+                    <!-- Список пользователей -->
                 </div>
             </div>
         </div>
     </div>
-
-    <script src="firebase.js"></script>
+    
+    <!-- Нижнее меню -->
+    <div class="tab-bar">
+        <button class="tab-button active" onclick="switchTab('home')">Главная</button>
+        <button class="tab-button" onclick="switchTab('profile')">Профиль</button>
+        <button class="tab-button" onclick="switchTab('tasks')">Задачи</button>
+    </div>
+    
     <script src="app.js"></script>
 </body>
 </html>
