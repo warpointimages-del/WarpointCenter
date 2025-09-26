@@ -18,6 +18,15 @@
     <script type="module" src="firebase.js"></script>
     <script type="module" src="admin-panel.js"></script>
     <script type="module" src="script.js"></script>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>График работы</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script type="module" src="firebase.js"></script>
+    <script type="module" src="admin-panel.js"></script>
+    <script type="module" src="script.js"></script>
 </head>
 <body>
     <div id="app">
@@ -28,39 +37,22 @@
             <div id="admin-panel" class="hidden">
                 <h3>Админская панель</h3>
                 <div id="users-list"></div>
+                <div id="registered-employees"></div>
             </div>
 
-            <!-- Панель фильтров -->
+            <!-- Остальная часть без изменений -->
             <div id="filters-panel">
                 <label class="checkbox-container">
                     <input type="checkbox" id="show-only-mine">
                     <span class="checkmark"></span>
                     Только мои смены
                 </label>
-                
-                <div id="color-picker" class="hidden">
-                    <label>Цвет моих смен:</label>
-                    <div class="slider-container">
-                        <span>H</span>
-                        <input type="range" id="hue-slider" min="0" max="360" value="200">
-                    </div>
-                    <div class="slider-container">
-                        <span>S</span>
-                        <input type="range" id="saturation-slider" min="0" max="100" value="80">
-                    </div>
-                    <div class="slider-container">
-                        <span>L</span>
-                        <input type="range" id="lightness-slider" min="0" max="100" value="60">
-                    </div>
-                </div>
             </div>
 
-            <!-- Навигация по месяцам -->
             <div id="month-navigation" class="month-navigation hidden">
                 <select id="month-select" class="month-select"></select>
             </div>
 
-            <!-- Навигация -->
             <div id="navigation">
                 <button id="prev-week" class="nav-btn">←</button>
                 <div id="current-period"></div>
@@ -69,7 +61,6 @@
 
             <button id="toggle-view" class="toggle-btn">▼</button>
 
-            <!-- Календарь -->
             <div id="calendar-container">
                 <div id="week-view"></div>
                 <div id="month-view" class="hidden"></div>
