@@ -124,6 +124,10 @@ class AdminPanel {
     }
 
     async removeEmployee(employeeName) {
+        if (!confirm(`Удалить сотрудника "${employeeName}" из списка?`)) {
+            return;
+        }
+
         const success = await firebaseService.removeRegisteredEmployee(employeeName);
         if (success) {
             await this.loadRegisteredEmployees();
