@@ -10,7 +10,7 @@ class ScheduleApp {
         this.filterSettings = { showOnlyMine: false };
         this.globalFilterSettings = { showOnlyRegistered: true };
         this.availableMonths = [];
-        this.registeredEmployees = []; // Простой массив имен
+        this.registeredEmployees = [];
         
         this.init();
     }
@@ -84,7 +84,6 @@ class ScheduleApp {
             const json = JSON.parse(text.substring(47, text.length - 2));
             
             if (json && json.sheets) {
-                // ИСПРАВЛЕНИЕ: ищем года с 2-значным форматом вместо 4-значного
                 this.availableMonths = json.sheets.map(sheet => sheet.name).filter(name => {
                     const monthPattern = /^(Январь|Февраль|Март|Апрель|Май|Июнь|Июль|Август|Сентябрь|Октябрь|Ноябрь|Декабрь)\s\d{2}$/;
                     return monthPattern.test(name);
@@ -99,12 +98,25 @@ class ScheduleApp {
     async loadScheduleData() {
         try {
             const currentMonthSheet = this.getCurrentMonthSheetName();
+            console.log('Текущий месяц для поиска:', currentMonthSheet);
+            console.log('Доступные листы:', this.availableMonths);
             
-            if (!this.availableMonths.includes(currentMonthSheet)) {
+            // ИСПРАВЛЕНИЕ: Нормализуем сравнение строк - убираем лишние пробелы
+            const normalizedAvailableMonths = this.availableMonths.map(month => month.trim());
+            const normalizedCurrentMonth = currentMonthSheet.trim();
+            
+            console.log('Нормализованный поиск:', normalizedCurrentMonth);
+            console.log('Нормализованные доступные:', normalizedAvailableMonths);
+            
+            if (!normalizedAvailableMonths.includes(normalizedCurrentMonth)) {
                 console.warn(`Лист "${currentMonthSheet}" не найден. Доступные листы:`, this.availableMonths);
                 const nearestMonth = this.findNearestMonth();
+                console.log('Ближайший найденный месяц:', nearestMonth);
+                
                 if (nearestMonth) {
                     await this.loadSpecificMonthData(nearestMonth);
+                } else {
+                    console.error('Не найден подходящий лист для загрузки');
                 }
                 return;
             }
@@ -117,33 +129,75 @@ class ScheduleApp {
 
     async loadSpecificMonthData(sheetName) {
         try {
-            console.log(`Загрузка данных для листа: ${sheetName}`);
+            console.log(`Загрузка данных для листа: "${sheetName}"`);
             const response = await fetch(
                 `https://docs.google.com/spreadsheets/d/1leyP2K649JNfC8XvIV3amZPnQz18jFI95JAJoeXcXGk/gviz/tq?sheet=${encodeURIComponent(sheetName)}`
             );
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             
             const text = await response.text();
             const json = JSON.parse(text.substring(47, text.length - 2));
             
             this.processScheduleData(json, sheetName);
         } catch (error) {
-            console.error(`Ошибка загрузки данных для листа ${sheetName}:`, error);
+            console.error(`Ошибка загрузки данных для листа "${sheetName}":`, error);
         }
     }
 
     findNearestMonth() {
-        const currentMonth = this.getCurrentMonthSheetName();
+        const currentMonth = this.getCurrentMonthSheetName().trim();
+        console.log('Поиск ближайшего месяца к:', currentMonth);
         
-        const currentIndex = this.availableMonths.indexOf(currentMonth);
-        if (currentIndex !== -1) return this.availableMonths[currentIndex];
+        // ИСПРАВЛЕНИЕ: Нормализуем сравнение
+        const normalizedAvailable = this.availableMonths.map(month => month.trim());
+        const normalizedCurrent = currentMonth.trim();
         
-        for (let i = 0; i < this.availableMonths.length; i++) {
-            if (this.availableMonths[i] > currentMonth) {
-                return this.availableMonths[i];
+        const currentIndex = normalizedAvailable.indexOf(normalizedCurrent);
+        if (currentIndex !== -1) {
+            console.log('Точное совпадение найдено:', this.availableMonths[currentIndex]);
+            return this.availableMonths[currentIndex];
+        }
+        
+        // Если точного совпадения нет, ищем ближайший по дате
+        const monthsOrder = {
+            'Январь': 1, 'Февраль': 2, 'Март': 3, 'Апрель': 4, 'Май': 5, 'Июнь': 6,
+            'Июль': 7, 'Август': 8, 'Сентябрь': 9, 'Октябрь': 10, 'Ноябрь': 11, 'Декабрь': 12
+        };
+        
+        const [currentMonthName, currentYear] = normalizedCurrent.split(' ');
+        const currentMonthNum = monthsOrder[currentMonthName];
+        const currentYearNum = parseInt(currentYear);
+        
+        let bestMatch = null;
+        let smallestDiff = Infinity;
+        
+        for (const availableMonth of this.availableMonths) {
+            const [availMonthName, availYear] = availableMonth.trim().split(' ');
+            const availMonthNum = monthsOrder[availMonthName];
+            const availYearNum = parseInt(availYear);
+            
+            // Вычисляем разницу в месяцах
+            const yearDiff = (availYearNum - currentYearNum) * 12;
+            const monthDiff = availMonthNum - currentMonthNum;
+            const totalDiff = yearDiff + monthDiff;
+            
+            // Ищем ближайший будущий месяц
+            if (totalDiff >= 0 && totalDiff < smallestDiff) {
+                smallestDiff = totalDiff;
+                bestMatch = availableMonth;
             }
         }
         
-        return this.availableMonths[this.availableMonths.length - 1] || null;
+        // Если не нашли будущий, берем последний доступный
+        if (!bestMatch && this.availableMonths.length > 0) {
+            bestMatch = this.availableMonths[this.availableMonths.length - 1];
+        }
+        
+        console.log('Лучшее совпадение:', bestMatch);
+        return bestMatch;
     }
 
     processScheduleData(data, sheetName) {
@@ -209,7 +263,6 @@ class ScheduleApp {
         const currentYear = this.currentDate.getFullYear();
         const currentMonth = this.currentDate.getMonth();
         
-        // ИСПРАВЛЕНИЕ: используем 2-значный формат года
         return `${months[currentMonth]} ${currentYear.toString().slice(2)}`;
     }
 
@@ -282,7 +335,6 @@ class ScheduleApp {
             'Июль': 6, 'Август': 7, 'Сентябрь': 8, 'Октябрь': 9, 'Ноябрь': 10, 'Декабрь': 11
         };
         
-        // ИСПРАВЛЕНИЕ: корректно обрабатываем 2-значный год
         this.currentDate = new Date(2000 + parseInt(year), months[monthName], 1);
         this.render();
     }
@@ -346,7 +398,10 @@ class ScheduleApp {
                 const option = document.createElement('option');
                 option.value = month;
                 option.textContent = month;
-                option.selected = month === this.getCurrentMonthSheetName();
+                // ИСПРАВЛЕНИЕ: Нормализуем сравнение для выбора
+                const currentNormalized = this.getCurrentMonthSheetName().trim();
+                const monthNormalized = month.trim();
+                option.selected = monthNormalized === currentNormalized;
                 monthSelect.appendChild(option);
             });
         } else {
@@ -469,9 +524,7 @@ class ScheduleApp {
         const allEmployees = Object.keys(this.scheduleData);
         console.log('Все сотрудники из таблицы:', allEmployees);
         
-        // ПРОСТАЯ И ПОНЯТНАЯ ФИЛЬТРАЦИЯ
         if (this.globalFilterSettings.showOnlyRegistered) {
-            // Фильтруем: оставляем только зарегистрированных сотрудников
             const filtered = allEmployees.filter(employee => 
                 this.registeredEmployees.includes(employee)
             );
@@ -479,14 +532,11 @@ class ScheduleApp {
             return filtered;
         }
         
-        // Если глобальная фильтрация выключена - показываем всех
         console.log('Глобальная фильтрация выключена, показываем всех сотрудников');
         return allEmployees;
     }
 
     getEmployeeColor(employeeName) {
-        // Пока используем простую цветовую схему
-        // В будущем можно добавить привязку цветов к сотрудникам
         return this.generateColorFromName(employeeName);
     }
 
