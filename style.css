@@ -264,3 +264,72 @@ input[type="range"]::-moz-range-thumb {
     cursor: pointer;
     border: none;
 }
+
+.user-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 200px;
+}
+
+.name-input-group {
+    display: flex;
+    gap: 5px;
+}
+
+.link-btn, .unlink-btn {
+    background-color: #444;
+    border: none;
+    color: #fff;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.link-btn:hover, .unlink-btn:hover {
+    background-color: #555;
+}
+
+.unlink-btn {
+    margin-left: 5px;
+    padding: 1px 5px;
+    border-radius: 50%;
+}
+
+.attached-names {
+    margin-top: 5px;
+}
+
+.attached-name {
+    display: inline-block;
+    background-color: #333;
+    padding: 2px 6px;
+    margin: 2px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.no-names {
+    font-style: italic;
+    color: #888;
+}
+
+.admin-control {
+    margin-top: 5px;
+}
+
+/* Навигация по месяцам */
+.month-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.month-select {
+    background-color: #333;
+    border: 1px solid #555;
+    color: #fff;
+    padding: 5px;
+}
