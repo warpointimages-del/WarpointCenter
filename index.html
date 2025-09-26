@@ -1,89 +1,73 @@
-const TelegramBot = require('node-telegram-bot-api');
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Конфигурация
-const BOT_TOKEN = '8367657341:AAElP8RNPS-jS5LacQQ2HcpWLpc5jbrpFF0';
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyAbLz1MnfjYIQMDkmqgMa09Z3W_j8dnJbM",
-  authDomain: "database-a9dee.firebaseapp.com",
-  databaseURL: "https://database-a9dee-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "database-a9dee",
-  storageBucket: "database-a9dee.firebasestorage.app",
-  messagingSenderId: "68358730239",
-  appId: "1:68358730239:web:21d9e409f80df8e815b7ca"
-};
-
-// Инициализация бота
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname)));
-
-// Маршрут для мини-приложения
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// API endpoint для получения данных графика
-app.get('/api/schedule', async (req, res) => {
-  try {
-    const scheduleData = await getScheduleData();
-    res.json(scheduleData);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// API endpoint для обновления цвета пользователя
-app.post('/api/update-color', async (req, res) => {
-  try {
-    const { userId, color } = req.body;
-    await updateUserColor(userId, color);
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Команда для бота
-bot.onText(/\/start/, (msg) => {
-  const chatId = msg.chat.id;
-  const miniAppUrl = `https://your-domain.com`; // Замените на ваш домен
-  
-  bot.sendMessage(chatId, 'Добро пожаловать в график работы!', {
-    reply_markup: {
-      inline_keyboard: [[
-        {
-          text: '📅 Открыть график',
-          web_app: { url: miniAppUrl }
-        }
-      ]]
-    }
-  });
-});
-
-// Функции для работы с Google Sheets и Firebase
-async function getScheduleData() {
-  // Здесь будет логика парсинга Google Sheets
-  // Пока возвращаем заглушку
-  return {
-    employees: [],
-    schedule: {},
-    lastUpdated: new Date().toISOString()
-  };
-}
-
-async function updateUserColor(userId, color) {
-  // Логика обновления цвета в Firebase
-}
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>График работы</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <div id="loading">Загрузка графика...</div>
+        
+        <div id="main-content" class="hidden">
+            <div class="header">
+                <h1>📅 График работы</h1>
+                <div class="view-controls">
+                    <button id="prev-btn" class="nav-btn">←</button>
+                    <span id="current-period" class="period-display"></span>
+                    <button id="next-btn" class="nav-btn">→</button>
+                </div>
+            </div>
+            
+            <div class="employee-selection">
+                <select id="employee-select">
+                    <option value="">-- Выберите себя --</option>
+                </select>
+            </div>
+            
+            <div id="calendar-container">
+                <div id="week-view" class="calendar-view">
+                    <!-- Недельный вид -->
+                </div>
+                <div id="month-view" class="calendar-view hidden">
+                    <!-- Месячный вид -->
+                </div>
+            </div>
+            
+            <div class="toggle-container">
+                <button id="toggle-view" class="toggle-btn">▼</button>
+            </div>
+            
+            <div id="user-panel">
+                <h3>🎨 Настройки отображения</h3>
+                <div class="color-controls">
+                    <label>Цвет ваших смен:</label>
+                    <div class="slider-group">
+                        <span>Цвет (H):</span>
+                        <input type="range" id="hue-slider" min="0" max="360" value="200">
+                        <span id="hue-value">200</span>
+                    </div>
+                    <div class="slider-group">
+                        <span>Насыщенность (S):</span>
+                        <input type="range" id="saturation-slider" min="0" max="100" value="80">
+                        <span id="saturation-value">80%</span>
+                    </div>
+                    <div class="slider-group">
+                        <span>Яркость (L):</span>
+                        <input type="range" id="lightness-slider" min="0" max="100" value="50">
+                        <span id="lightness-value">50%</span>
+                    </div>
+                    <div class="color-preview">
+                        <div id="color-display"></div>
+                        <button id="save-color">Сохранить цвет</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
