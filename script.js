@@ -10,19 +10,18 @@ class ScheduleApp {
         this.filterSettings = { showOnlyMine: false };
         this.globalFilterSettings = { showOnlyRegistered: true };
         this.availableMonths = [];
-        this.usersData = {};
+        this.registeredEmployees = []; // Простой массив имен
         
         this.init();
     }
 
     async init() {
         try {
-            console.log('=== ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ ===');
             this.tg.expand();
             this.tg.enableClosingConfirmation();
             
             await this.initializeUser();
-            await this.loadAllUsersData();
+            await this.loadRegisteredEmployees();
             await this.loadFilterSettings();
             await this.loadGlobalFilterSettings();
             await this.loadAvailableMonths();
@@ -66,12 +65,12 @@ class ScheduleApp {
             if (this.user.isAdmin) {
                 document.getElementById('admin-panel').classList.remove('hidden');
             }
-            
-            if (this.user.sheetNames && this.user.sheetNames.length > 0) {
-                document.getElementById('color-picker').classList.remove('hidden');
-                this.initializeColorPicker();
-            }
         }
+    }
+
+    async loadRegisteredEmployees() {
+        this.registeredEmployees = await firebaseService.getRegisteredEmployees();
+        console.log('Зарегистрированные сотрудники:', this.registeredEmployees);
     }
 
     initializeAdminControls() {
@@ -499,29 +498,19 @@ class ScheduleApp {
         const allEmployees = Object.keys(this.scheduleData);
         console.log('Все сотрудники из таблицы:', allEmployees);
         
-        // ПРИМЕНЯЕМ ГЛОБАЛЬНУЮ ФИЛЬТРАЦИЮ - только зарегистрированные
+        // ПРОСТАЯ ГЛОБАЛЬНАЯ ФИЛЬТРАЦИЯ
         if (this.globalFilterSettings.showOnlyRegistered) {
-            const registeredEmployees = this.getRegisteredEmployeesFromUsers();
-            console.log('Зарегистрированные сотрудники:', registeredEmployees);
-            
-            // Фильтруем: оставляем только тех, кто есть в registeredEmployees
-            const filteredByRegistration = allEmployees.filter(employee => 
-                registeredEmployees.includes(employee.trim())
+            const filtered = allEmployees.filter(employee => 
+                this.registeredEmployees.includes(employee)
             );
-            
-            console.log('После глобальной фильтрации:', filteredByRegistration);
-            
-            // Если включена фильтрация "только мои смены" - применяем дополнительную фильтрацию
-            if (this.filterSettings.showOnlyMine && this.user && this.user.sheetNames) {
-                const finalFiltered = filteredByRegistration.filter(employee => 
-                    this.user.sheetNames.includes(employee.trim())
-                );
-                console.log('После моих смен:', finalFiltered);
-                return finalFiltered;
-            }
-            
-            return filteredByRegistration;
+            console.log('После фильтрации:', filtered);
+            return filtered;
         }
+        
+        // Если глобальная фильтрация выключена - показываем всех
+        console.log('Показываем всех сотрудников');
+        return allEmployees;
+    }
         
         // Если глобальная фильтрация выключена - показываем всех
         console.log('Глобальная фильтрация выключена, показываем всех');
