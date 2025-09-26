@@ -38,7 +38,7 @@ class AdminPanel {
                             sheetNames.map(name => `
                                 <span class="attached-name">
                                     ${name}
-                                    <button class="unlink-btn" onclick="adminPanel.unlinkName(${user.id}, '${name}')">×</button>
+                                    <button class="unlink-btn" onclick="adminPanel.unlinkName('${user.id}', '${name.replace(/'/g, "\'")}')">×</button>
                                 </span>
                             `).join('') : 
                             '<span class="no-names">нет привязанных имен</span>'
