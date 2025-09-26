@@ -14,100 +14,85 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
-// Минимальная версия Firebase
 class FirebaseService {
     constructor() {
-        this.db = null;
-        this.cache = new Map();
-        this.initPromise = this.initializeFirebase();
+        this.db = database;
     }
 
-    async initializeFirebase() {
-        if (typeof firebase === 'undefined') {
-            await new Promise(resolve => setTimeout(resolve, 100));
-            return this.initializeFirebase();
-        }
-
+    // Сохранение пользователя
+    async saveUser(userData) {
         try {
-            const app = firebase.initializeApp(window.firebaseConfig);
-            this.db = firebase.database();
-            console.log('Firebase инициализирован');
-        } catch (error) {
-            console.log('Firebase уже инициализирован');
-        }
-    }
-
-    async ensureInit() {
-        await this.initPromise;
-    }
-
-    // Кэшированные запросы
-    async getWithCache(path) {
-        await this.ensureInit();
-        
-        if (this.cache.has(path)) {
-            return this.cache.get(path);
-        }
-
-        try {
-            const snapshot = await this.db.ref(path).once('value');
-            const value = snapshot.exists() ? snapshot.val() : null;
-            this.cache.set(path, value);
-            return value;
-        } catch (error) {
-            console.error('Firebase error:', error);
-            return null;
-        }
-    }
-
-    async setWithCache(path, value) {
-        await this.ensureInit();
-        
-        try {
-            await this.db.ref(path).set(value);
-            this.cache.set(path, value);
+            await set(ref(this.db, 'users/' + userData.id), {
+                id: userData.id,
+                username: userData.username || '',
+                firstName: userData.first_name || '',
+                lastName: userData.last_name || '',
+                isAdmin: userData.isAdmin || false,
+                sheetNames: userData.sheetNames || [],
+                color: userData.color || { h: 200, s: 80, l: 60 },
+                createdAt: Date.now()
+            });
             return true;
         } catch (error) {
-            console.error('Firebase set error:', error);
+            console.error('Ошибка сохранения пользователя:', error);
             return false;
         }
     }
 
-    async updateUser(userId, updates) {
-        const path = `users/${userId}`;
-        const current = await this.getWithCache(path) || {};
-        return this.setWithCache(path, { ...current, ...updates });
-    }
-
+    // Получение пользователя
     async getUser(userId) {
-        return this.getWithCache(`users/${userId}`);
+        try {
+            const snapshot = await get(child(ref(this.db), `users/${userId}`));
+            return snapshot.exists() ? snapshot.val() : null;
+        } catch (error) {
+            console.error('Ошибка получения пользователя:', error);
+            return null;
+        }
     }
 
-    async saveUser(userData) {
-        const path = `users/${userData.id}`;
-        const existing = await this.getWithCache(path) || {};
-        return this.setWithCache(path, {
-            ...existing,
-            ...userData,
-            lastLogin: new Date().toISOString()
-        });
-    }
-
-    async getScheduleData(monthYear) {
-        const data = await this.getWithCache(`schedule/${monthYear}`);
-        return data ? data.data : null;
-    }
-
-    async saveScheduleData(monthYear, scheduleData) {
-        return this.setWithCache(`schedule/${monthYear}`, {
-            data: scheduleData,
-            lastUpdated: new Date().toISOString()
-        });
-    }
-
+    // Получение всех пользователей
     async getAllUsers() {
-        return this.getWithCache('users') || {};
+        try {
+            const snapshot = await get(child(ref(this.db), 'users'));
+            return snapshot.exists() ? snapshot.val() : {};
+        } catch (error) {
+            console.error('Ошибка получения пользователей:', error);
+            return {};
+        }
+    }
+
+    // Обновление пользователя
+    async updateUser(userId, updates) {
+        try {
+            await update(ref(this.db, 'users/' + userId), updates);
+            return true;
+        } catch (error) {
+            console.error('Ошибка обновления пользователя:', error);
+            return false;
+        }
+    }
+
+    // Сохранение настроек фильтра
+    async saveFilterSettings(userId, settings) {
+        try {
+            await set(ref(this.db, `filterSettings/${userId}`), settings);
+            return true;
+        } catch (error) {
+            console.error('Ошибка сохранения настроек фильтра:', error);
+            return false;
+        }
+    }
+
+    // Получение настроек фильтра
+    async getFilterSettings(userId) {
+        try {
+            const snapshot = await get(child(ref(this.db), `filterSettings/${userId}`));
+            return snapshot.exists() ? snapshot.val() : { showOnlyMine: false };
+        } catch (error) {
+            console.error('Ошибка получения настроек фильтра:', error);
+            return { showOnlyMine: false };
+        }
     }
 }
 
-window.firebaseService = new FirebaseService();
+export const firebaseService = new FirebaseService();
