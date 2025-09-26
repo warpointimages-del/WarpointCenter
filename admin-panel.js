@@ -112,22 +112,23 @@ class AdminPanel {
         this.users[userId].isAdmin = isAdmin;
     }
 
-    updateRegisteredEmployees() {
-        const allEmployees = new Set();
-        
-        Object.values(this.users).forEach(user => {
-            if (user.sheetNames) {
-                user.sheetNames.forEach(name => allEmployees.add(name));
-            }
-        });
-        
-        window.registeredEmployees = Array.from(allEmployees);
-        
-        // Автоматически обновляем отображение графика
-        if (window.scheduleApp) {
-            window.scheduleApp.updateRegisteredEmployeesList();
-            window.scheduleApp.render();
+updateRegisteredEmployees() {
+    const allEmployees = new Set();
+    
+    Object.values(this.users).forEach(user => {
+        if (user.sheetNames && Array.isArray(user.sheetNames)) {
+            user.sheetNames.forEach(name => allEmployees.add(name.trim()));
         }
+    });
+    
+    window.registeredEmployees = Array.from(allEmployees);
+    console.log('Обновленные зарегистрированные сотрудники:', window.registeredEmployees);
+    
+    // Автоматически обновляем отображение графика
+    if (window.scheduleApp) {
+        window.scheduleApp.loadAllUsersData().then(() => {
+            window.scheduleApp.render();
+        });
     }
 }
 
