@@ -5,7 +5,358 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>График работы</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="styles.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            line-height: 1.4;
+            padding: 0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #app {
+            min-height: 100vh;
+            padding: 16px;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        #loading {
+            text-align: center;
+            padding: 50px 20px;
+            font-size: 18px;
+            color: #888;
+        }
+
+        .header {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #fff;
+        }
+
+        .view-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 16px;
+        }
+
+        .nav-btn {
+            background: #1e1e1e;
+            color: #ffffff;
+            border: none;
+            width: 40px;
+            height: 40px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-radius: 0;
+        }
+
+        .nav-btn:hover {
+            background: #2a2a2a;
+        }
+
+        .period-display {
+            font-size: 16px;
+            font-weight: 500;
+            min-width: 200px;
+            text-align: center;
+        }
+
+        .employee-selection {
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        #employee-select {
+            background: #1e1e1e;
+            color: #fff;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 0;
+            font-size: 14px;
+            width: 200px;
+        }
+
+        .calendar-view {
+            margin-bottom: 16px;
+        }
+
+        .week-grid {
+            display: grid;
+            grid-template-columns: 120px repeat(7, 1fr);
+            gap: 1px;
+            background: #2a2a2a;
+            font-size: 12px;
+        }
+
+        .month-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+            background: #2a2a2a;
+            font-size: 11px;
+        }
+
+        .week-header, .month-header {
+            background: #1a1a1a;
+            padding: 12px 4px;
+            text-align: center;
+            font-weight: 500;
+            font-size: 11px;
+        }
+
+        .employee-name {
+            background: #1a1a1a;
+            padding: 8px 4px;
+            text-align: left;
+            font-size: 11px;
+            border-right: 1px solid #2a2a2a;
+        }
+
+        .user-employee {
+            background: #2a1a2a;
+            font-weight: 600;
+        }
+
+        .day-cell, .month-day {
+            background: #1e1e1e;
+            min-height: 50px;
+            padding: 4px;
+            position: relative;
+            border: none;
+        }
+
+        .month-day {
+            min-height: 70px;
+        }
+
+        .day-cell.today, .month-day.today {
+            background: #2a2a2a;
+        }
+
+        .empty {
+            background: #121212;
+        }
+
+        .date-number {
+            font-size: 10px;
+            margin-bottom: 2px;
+            color: #888;
+        }
+
+        .today .date-number {
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .shift-strip {
+            position: absolute;
+            height: 3px;
+            background: #ff6b6b;
+            transform: skewX(-15deg);
+            border-radius: 0;
+            z-index: 1;
+            left: 4px;
+            right: 4px;
+            bottom: 8px;
+        }
+
+        .long-shift {
+            height: 4px;
+            bottom: 12px;
+        }
+
+        .month-day .shift-strip {
+            height: 2px;
+            bottom: 4px;
+        }
+
+        .month-day .long-shift {
+            height: 3px;
+            bottom: 8px;
+        }
+
+        .toggle-container {
+            text-align: center;
+            margin: 16px 0;
+        }
+
+        .toggle-btn {
+            background: #1e1e1e;
+            color: #ffffff;
+            border: none;
+            width: 40px;
+            height: 40px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-radius: 0;
+        }
+
+        .toggle-btn:hover {
+            background: #2a2a2a;
+        }
+
+        #user-panel {
+            background: #1a1a1a;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 0;
+        }
+
+        #user-panel h3 {
+            margin-bottom: 16px;
+            font-size: 16px;
+            color: #fff;
+        }
+
+        .color-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+        }
+
+        .slider-group span:first-child {
+            width: 100px;
+            text-align: right;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 4px;
+            background: #2a2a2a;
+            outline: none;
+            border-radius: 0;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #ffffff;
+            cursor: pointer;
+            border-radius: 0;
+        }
+
+        .color-preview {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        #color-display {
+            width: 40px;
+            height: 40px;
+            background: hsl(200, 80%, 50%);
+            border: 1px solid #333;
+        }
+
+        #save-color {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 0;
+            transition: background 0.2s;
+            font-size: 12px;
+        }
+
+        #save-color:hover {
+            background: #1d4ed8;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #2563eb;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 0;
+            z-index: 1000;
+            font-size: 14px;
+        }
+
+        .error-message {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #dc2626;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 0;
+            z-index: 1000;
+        }
+
+        @media (max-width: 768px) {
+            #app {
+                padding: 8px;
+            }
+            
+            .week-grid {
+                grid-template-columns: 100px repeat(7, 1fr);
+                font-size: 10px;
+            }
+            
+            .month-grid {
+                grid-template-columns: repeat(7, 1fr);
+            }
+            
+            .month-day {
+                min-height: 60px;
+                font-size: 10px;
+            }
+            
+            .header h1 {
+                font-size: 20px;
+            }
+            
+            .employee-name {
+                font-size: 10px;
+                padding: 6px 2px;
+            }
+            
+            .slider-group {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+            
+            .slider-group span:first-child {
+                width: auto;
+                text-align: left;
+            }
+        }
+    </style>
 </head>
 <body>
     <div id="app">
@@ -67,7 +418,512 @@
             </div>
         </div>
     </div>
-    
-    <script src="app.js"></script>
+
+    <script>
+        // Встроенный JavaScript код
+        class ScheduleApp {
+            constructor() {
+                this.tg = window.Telegram?.WebApp;
+                this.currentDate = new Date();
+                this.isMonthView = false;
+                this.userData = null;
+                this.scheduleData = null;
+                this.userColor = { h: 200, s: 80, l: 50 };
+                this.isInitialized = false;
+                
+                this.init();
+            }
+
+            async init() {
+                try {
+                    if (this.tg) {
+                        this.tg.expand();
+                        this.tg.enableClosingConfirmation();
+                        await this.authenticateUser();
+                    } else {
+                        // Режим разработки без Telegram
+                        this.userData = {
+                            tgId: 'dev_' + Date.now(),
+                            username: 'developer',
+                            firstName: 'Developer',
+                            lastName: 'Mode'
+                        };
+                    }
+                    
+                    await this.loadUserData();
+                    await this.loadScheduleData();
+                    this.setupEventListeners();
+                    this.renderCalendar();
+                    
+                    document.getElementById('loading').classList.add('hidden');
+                    document.getElementById('main-content').classList.remove('hidden');
+                    document.getElementById('user-panel').classList.remove('hidden');
+                    
+                    this.isInitialized = true;
+                } catch (error) {
+                    console.error('Initialization error:', error);
+                    this.showError('Ошибка загрузки приложения');
+                }
+            }
+
+            async authenticateUser() {
+                if (!this.tg?.initDataUnsafe?.user) {
+                    throw new Error('User not found in Telegram context');
+                }
+                
+                const user = this.tg.initDataUnsafe.user;
+                this.userData = {
+                    tgId: user.id,
+                    username: user.username || `user_${user.id}`,
+                    firstName: user.first_name,
+                    lastName: user.last_name || ''
+                };
+                
+                this.saveToLocalStorage('userData', this.userData);
+            }
+
+            async loadUserData() {
+                try {
+                    const savedData = this.loadFromLocalStorage('userData');
+                    if (savedData && savedData.tgId === this.userData.tgId) {
+                        if (savedData.color) {
+                            this.userColor = savedData.color;
+                        }
+                        if (savedData.employeeId) {
+                            this.userData.employeeId = savedData.employeeId;
+                        }
+                    }
+                    this.updateColorSliders();
+                } catch (error) {
+                    console.error('Error loading user data:', error);
+                }
+            }
+
+            async loadScheduleData() {
+                try {
+                    // Используем прямые запросы к Google Sheets API
+                    this.scheduleData = await this.fetchGoogleSheetsData();
+                } catch (error) {
+                    console.error('Error loading schedule:', error);
+                    this.scheduleData = this.getMockScheduleData();
+                }
+            }
+
+            async fetchGoogleSheetsData() {
+                const sheetId = '1leyP2K649JNfC8XvIV3amZPnQz18jFI95JAJoeXcXGk';
+                const currentMonth = this.getCurrentMonthSheetName();
+                
+                try {
+                    // Прямой запрос к Google Sheets API
+                    const response = await fetch(
+                        `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?sheet=${encodeURIComponent(currentMonth)}`
+                    );
+                    
+                    if (!response.ok) throw new Error('Network error');
+                    
+                    const text = await response.text();
+                    const jsonStr = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]+)\);/)[1];
+                    const data = JSON.parse(jsonStr);
+                    
+                    return this.parseGoogleSheetsData(data);
+                } catch (error) {
+                    console.error('Google Sheets error:', error);
+                    return this.getMockScheduleData();
+                }
+            }
+
+            parseGoogleSheetsData(data) {
+                if (!data.table) return this.getMockScheduleData();
+                
+                const employees = [];
+                const schedule = {};
+                const rows = data.table.rows;
+                
+                // Первая строка - даты
+                const dates = rows[0].c.slice(1).map(cell => {
+                    return cell ? parseInt(cell.v) : null;
+                }).filter(Boolean);
+                
+                // Остальные строки - сотрудники
+                for (let i = 1; i < rows.length; i++) {
+                    const row = rows[i].c;
+                    if (!row || row.length === 0) continue;
+                    
+                    const employeeName = row[0]?.v;
+                    if (!employeeName) continue;
+                    
+                    const employeeId = i;
+                    employees.push({
+                        id: employeeId,
+                        name: employeeName.trim(),
+                        color: this.generateRandomColor()
+                    });
+                    
+                    // Данные смен
+                    for (let j = 1; j < row.length; j++) {
+                        const date = dates[j - 1];
+                        if (!date) continue;
+                        
+                        const shiftValue = row[j]?.v ? parseFloat(row[j].v) : 0;
+                        if (shiftValue > 0) {
+                            const monthKey = this.getCurrentMonthKey();
+                            if (!schedule[monthKey]) schedule[monthKey] = {};
+                            if (!schedule[monthKey][employeeId]) schedule[monthKey][employeeId] = {};
+                            
+                            schedule[monthKey][employeeId][date] = shiftValue;
+                        }
+                    }
+                }
+                
+                return {
+                    employees,
+                    schedule,
+                    lastUpdated: new Date().toISOString()
+                };
+            }
+
+            getCurrentMonthSheetName() {
+                const months = [
+                    'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+                    'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+                ];
+                const now = new Date();
+                const month = months[now.getMonth()];
+                const year = now.getFullYear().toString().slice(-2);
+                return `${month} ${year}`;
+            }
+
+            getCurrentMonthKey() {
+                const now = new Date();
+                return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+            }
+
+            generateRandomColor() {
+                const hues = [0, 30, 60, 120, 180, 240, 300];
+                const randomHue = hues[Math.floor(Math.random() * hues.length)];
+                return `hsl(${randomHue}, 70%, 50%)`;
+            }
+
+            getMockScheduleData() {
+                return {
+                    employees: [
+                        { id: 1, name: 'Иван Иванов', color: 'hsl(0, 70%, 50%)' },
+                        { id: 2, name: 'Петр Петров', color: 'hsl(120, 70%, 50%)' },
+                        { id: 3, name: 'Мария Сидорова', color: 'hsl(240, 70%, 50%)' },
+                        { id: 4, name: 'Анна Козлова', color: 'hsl(60, 70%, 50%)' },
+                        { id: 5, name: 'Сергей Смирнов', color: 'hsl(300, 70%, 50%)' }
+                    ],
+                    schedule: {
+                        '2024-01': {
+                            1: { 1: 1, 5: 1, 10: 8, 15: 1, 20: 1, 25: 6 },
+                            2: { 2: 1, 6: 1, 11: 1, 16: 8, 21: 1, 26: 1 },
+                            3: { 3: 1, 7: 1, 12: 6, 17: 1, 22: 1, 27: 8 },
+                            4: { 4: 1, 8: 8, 13: 1, 18: 1, 23: 6, 28: 1 },
+                            5: { 5: 1, 9: 1, 14: 1, 19: 8, 24: 1, 29: 1 }
+                        }
+                    },
+                    lastUpdated: new Date().toISOString()
+                };
+            }
+
+            setupEventListeners() {
+                document.getElementById('prev-btn').addEventListener('click', () => this.navigate(-1));
+                document.getElementById('next-btn').addEventListener('click', () => this.navigate(1));
+                document.getElementById('toggle-view').addEventListener('click', () => this.toggleView());
+                
+                document.getElementById('hue-slider').addEventListener('input', (e) => this.updateColor('h', e.target.value));
+                document.getElementById('saturation-slider').addEventListener('input', (e) => this.updateColor('s', e.target.value));
+                document.getElementById('lightness-slider').addEventListener('input', (e) => this.updateColor('l', e.target.value));
+                document.getElementById('save-color').addEventListener('click', () => this.saveColor());
+                
+                document.getElementById('employee-select').addEventListener('change', (e) => this.selectEmployee(e.target.value));
+            }
+
+            updateColor(component, value) {
+                this.userColor[component] = parseInt(value);
+                this.updateColorDisplay();
+                if (this.isInitialized) {
+                    this.renderCalendar();
+                }
+            }
+
+            updateColorSliders() {
+                document.getElementById('hue-slider').value = this.userColor.h;
+                document.getElementById('saturation-slider').value = this.userColor.s;
+                document.getElementById('lightness-slider').value = this.userColor.l;
+                this.updateColorDisplay();
+            }
+
+            updateColorDisplay() {
+                const colorStr = `hsl(${this.userColor.h}, ${this.userColor.s}%, ${this.userColor.l}%)`;
+                document.getElementById('color-display').style.background = colorStr;
+                document.getElementById('hue-value').textContent = this.userColor.h;
+                document.getElementById('saturation-value').textContent = this.userColor.s + '%';
+                document.getElementById('lightness-value').textContent = this.userColor.l + '%';
+            }
+
+            async saveColor() {
+                try {
+                    this.userData.color = this.userColor;
+                    this.saveToLocalStorage('userData', this.userData);
+                    this.showNotification('Цвет сохранен ✅');
+                } catch (error) {
+                    console.error('Error saving color:', error);
+                    this.showNotification('Ошибка сохранения ❌');
+                }
+            }
+
+            selectEmployee(employeeId) {
+                this.userData.employeeId = employeeId ? parseInt(employeeId) : null;
+                this.saveToLocalStorage('userData', this.userData);
+                this.renderCalendar();
+            }
+
+            navigate(direction) {
+                if (this.isMonthView) {
+                    this.currentDate.setMonth(this.currentDate.getMonth() + direction);
+                } else {
+                    this.currentDate.setDate(this.currentDate.getDate() + (direction * 7));
+                }
+                this.renderCalendar();
+            }
+
+            toggleView() {
+                this.isMonthView = !this.isMonthView;
+                const toggleBtn = document.getElementById('toggle-view');
+                toggleBtn.textContent = this.isMonthView ? '▲' : '▼';
+                
+                document.getElementById('week-view').classList.toggle('hidden', this.isMonthView);
+                document.getElementById('month-view').classList.toggle('hidden', !this.isMonthView);
+                
+                this.renderCalendar();
+            }
+
+            renderCalendar() {
+                if (this.isMonthView) {
+                    this.renderMonthView();
+                } else {
+                    this.renderWeekView();
+                }
+                this.updatePeriodDisplay();
+                this.updateEmployeeSelect();
+            }
+
+            renderWeekView() {
+                const weekView = document.getElementById('week-view');
+                const weekStart = this.getWeekStart(new Date(this.currentDate));
+                
+                let html = '<div class="week-grid">';
+                
+                html += '<div class="week-header">Сотрудник</div>';
+                for (let i = 0; i < 7; i++) {
+                    const date = new Date(weekStart);
+                    date.setDate(weekStart.getDate() + i);
+                    const isToday = this.isToday(date);
+                    const todayClass = isToday ? ' today' : '';
+                    html += `<div class="week-header${todayClass}">${this.formatDate(date, 'week-header')}</div>`;
+                }
+                
+                if (this.scheduleData && this.scheduleData.employees) {
+                    this.scheduleData.employees.forEach(employee => {
+                        const isUser = this.userData.employeeId === employee.id;
+                        const userClass = isUser ? ' user-employee' : '';
+                        
+                        html += `<div class="employee-name${userClass}">${employee.name}</div>`;
+                        for (let i = 0; i < 7; i++) {
+                            const date = new Date(weekStart);
+                            date.setDate(weekStart.getDate() + i);
+                            const isToday = this.isToday(date);
+                            const todayClass = isToday ? ' today' : '';
+                            
+                            html += `<div class="day-cell${todayClass}">`;
+                            html += `<div class="date-number">${date.getDate()}</div>`;
+                            
+                            if (this.hasShift(employee.id, date)) {
+                                const isUserShift = isUser;
+                                const color = isUserShift ? 
+                                    `hsl(${this.userColor.h}, ${this.userColor.s}%, ${this.userColor.l}%)` : 
+                                    employee.color;
+                                
+                                const shiftValue = this.getShiftValue(employee.id, date);
+                                const shiftClass = shiftValue > 1 ? ' long-shift' : '';
+                                const title = shiftValue > 1 ? `${shiftValue} часов` : 'Смена';
+                                
+                                html += `<div class="shift-strip${shiftClass}" style="background: ${color};" title="${employee.name}: ${title}"></div>`;
+                            }
+                            
+                            html += `</div>`;
+                        }
+                    });
+                }
+                
+                html += '</div>';
+                weekView.innerHTML = html;
+            }
+
+            renderMonthView() {
+                const monthView = document.getElementById('month-view');
+                const year = this.currentDate.getFullYear();
+                const month = this.currentDate.getMonth();
+                const firstDay = new Date(year, month, 1);
+                const lastDay = new Date(year, month + 1, 0);
+                const daysInMonth = lastDay.getDate();
+                
+                let html = '<div class="month-grid">';
+                
+                const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+                days.forEach(day => {
+                    html += `<div class="month-header">${day}</div>`;
+                });
+                
+                const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+                for (let i = 0; i < startDay; i++) {
+                    html += '<div class="month-day empty"></div>';
+                }
+                
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const date = new Date(year, month, day);
+                    const isToday = this.isToday(date);
+                    const todayClass = isToday ? ' today' : '';
+                    
+                    html += `<div class="month-day${todayClass}">`;
+                    html += `<div class="date-number">${day}</div>`;
+                    
+                    if (this.scheduleData && this.scheduleData.employees) {
+                        this.scheduleData.employees.forEach(employee => {
+                            if (this.hasShift(employee.id, date)) {
+                                const isUser = this.userData.employeeId === employee.id;
+                                const isUserShift = isUser;
+                                const color = isUserShift ? 
+                                    `hsl(${this.userColor.h}, ${this.userColor.s}%, ${this.userColor.l}%)` : 
+                                    employee.color;
+                                
+                                const shiftValue = this.getShiftValue(employee.id, date);
+                                const shiftClass = shiftValue > 1 ? ' long-shift' : '';
+                                const title = `${employee.name}: ${shiftValue > 1 ? shiftValue + ' часов' : 'Смена'}`;
+                                
+                                html += `<div class="shift-strip${shiftClass}" style="background: ${color};" title="${title}"></div>`;
+                            }
+                        });
+                    }
+                    
+                    html += `</div>`;
+                }
+                
+                html += '</div>';
+                monthView.innerHTML = html;
+            }
+
+            hasShift(employeeId, date) {
+                const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                const day = date.getDate();
+                
+                return this.scheduleData?.schedule?.[monthKey]?.[employeeId]?.[day];
+            }
+
+            getShiftValue(employeeId, date) {
+                const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                const day = date.getDate();
+                
+                return this.scheduleData?.schedule?.[monthKey]?.[employeeId]?.[day] || 0;
+            }
+
+            isToday(date) {
+                const today = new Date();
+                return date.getDate() === today.getDate() &&
+                       date.getMonth() === today.getMonth() &&
+                       date.getFullYear() === today.getFullYear();
+            }
+
+            getWeekStart(date) {
+                const day = date.getDay();
+                const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+                return new Date(date.setDate(diff));
+            }
+
+            formatDate(date, format = 'full') {
+                if (format === 'week-header') {
+                    const options = { weekday: 'short', day: 'numeric' };
+                    return date.toLocaleDateString('ru-RU', options);
+                }
+                
+                const options = {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                };
+                return date.toLocaleDateString('ru-RU', options);
+            }
+
+            updatePeriodDisplay() {
+                const periodElement = document.getElementById('current-period');
+                if (this.isMonthView) {
+                    const monthName = this.currentDate.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+                    periodElement.textContent = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+                } else {
+                    const weekStart = this.getWeekStart(new Date(this.currentDate));
+                    const weekEnd = new Date(weekStart);
+                    weekEnd.setDate(weekStart.getDate() + 6);
+                    
+                    const startStr = weekStart.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+                    const endStr = weekEnd.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+                    periodElement.textContent = `${startStr} - ${endStr}`;
+                }
+            }
+
+            updateEmployeeSelect() {
+                const select = document.getElementById('employee-select');
+                if (!this.scheduleData?.employees) return;
+                
+                select.innerHTML = '<option value="">-- Выберите себя --</option>';
+                this.scheduleData.employees.forEach(employee => {
+                    const selected = this.userData.employeeId === employee.id ? 'selected' : '';
+                    select.innerHTML += `<option value="${employee.id}" ${selected}>${employee.name}</option>`;
+                });
+            }
+
+            saveToLocalStorage(key, data) {
+                try {
+                    localStorage.setItem(key, JSON.stringify(data));
+                } catch (error) {
+                    console.error('Error saving to localStorage:', error);
+                }
+            }
+
+            loadFromLocalStorage(key) {
+                try {
+                    const data = localStorage.getItem(key);
+                    return data ? JSON.parse(data) : null;
+                } catch (error) {
+                    console.error('Error loading from localStorage:', error);
+                    return null;
+                }
+            }
+
+            showNotification(message) {
+                const notification = document.createElement('div');
+                notification.className = 'notification';
+                notification.textContent = message;
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.remove();
+                }, 3000);
+            }
+
+            showError(message) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                errorDiv.textContent = message;
+                document.body.appendChild(errorDiv);
+            }
+        }
+
+        // Запуск приложения когда DOM загружен
+        document.addEventListener('DOMContentLoaded', () => {
+            new ScheduleApp();
+        });
+    </script>
 </body>
 </html>
