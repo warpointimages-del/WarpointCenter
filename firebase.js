@@ -21,7 +21,6 @@ class FirebaseService {
 
     // === МЕТОДЫ ДЛЯ ЗАРЕГИСТРИРОВАННЫХ СОТРУДНИКОВ ===
     
-    // Получить всех зарегистрированных сотрудников
     async getRegisteredEmployees() {
         try {
             const snapshot = await get(child(ref(this.db), 'registeredEmployees'));
@@ -32,7 +31,6 @@ class FirebaseService {
         }
     }
 
-    // Добавить сотрудника в список зарегистрированных
     async addRegisteredEmployee(employeeName) {
         try {
             const currentEmployees = await this.getRegisteredEmployees();
@@ -48,7 +46,6 @@ class FirebaseService {
         }
     }
 
-    // Удалить сотрудника из списка зарегистрированных
     async removeRegisteredEmployee(employeeName) {
         try {
             const currentEmployees = await this.getRegisteredEmployees();
@@ -61,7 +58,7 @@ class FirebaseService {
         }
     }
 
-    // === СТАРЫЕ МЕТОДЫ (упрощаем) ===
+    // === МЕТОДЫ ДЛЯ ПОЛЬЗОВАТЕЛЕЙ ===
 
     async saveUser(userData) {
         try {
