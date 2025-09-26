@@ -3,14 +3,15 @@ import { firebaseService } from './firebase.js';
 class AdminPanel {
     constructor() {
         this.users = {};
+        this.registeredEmployees = [];
         setTimeout(() => this.init(), 100);
     }
 
     async init() {
         try {
             await this.loadUsers();
-            this.renderUsersList();
-            this.updateRegisteredEmployees();
+            await this.loadRegisteredEmployees();
+            this.render();
         } catch (error) {
             console.error('Ошибка инициализации админ-панели:', error);
         }
@@ -18,48 +19,33 @@ class AdminPanel {
 
     async loadUsers() {
         this.users = await firebaseService.getAllUsers();
-        console.log('Загружены пользователи:', this.users);
+    }
+
+    async loadRegisteredEmployees() {
+        this.registeredEmployees = await firebaseService.getRegisteredEmployees();
+    }
+
+    render() {
+        this.renderUsersList();
+        this.renderRegisteredEmployeesList();
     }
 
     renderUsersList() {
         const usersList = document.getElementById('users-list');
         if (!usersList) return;
         
-        usersList.innerHTML = '';
+        usersList.innerHTML = '<h4>Пользователи</h4>';
 
         Object.values(this.users).forEach(user => {
             const userElement = document.createElement('div');
             userElement.className = 'user-item';
-            userElement.id = `user-${user.id}`;
-            
-            const sheetNames = user.sheetNames || [];
-            
             userElement.innerHTML = `
                 <div class="user-info">
                     <strong>${user.firstName || ''} ${user.lastName || ''}</strong>
                     <div>@${user.username || 'нет username'}</div>
                     <div>ID: ${user.id}</div>
-                    <div class="attached-names">
-                        <strong>Привязанные имена:</strong>
-                        ${sheetNames.length > 0 ? 
-                            sheetNames.map(name => `
-                                <span class="attached-name">
-                                    ${name}
-                                    <button class="unlink-btn" onclick="adminPanel.unlinkName('${user.id}', '${name.replace(/'/g, "\\'")}')">×</button>
-                                </span>
-                            `).join('') : 
-                            '<span class="no-names">нет привязанных имен</span>'
-                        }
-                    </div>
                 </div>
                 <div class="user-controls">
-                    <div class="name-input-group">
-                        <input type="text" 
-                               class="user-name-input" 
-                               id="input-${user.id}"
-                               placeholder="Имя из таблицы">
-                        <button class="link-btn" onclick="adminPanel.linkName('${user.id}')">Привязать</button>
-                    </div>
                     <div class="admin-control">
                         <label>
                             <input type="checkbox" 
@@ -76,10 +62,44 @@ class AdminPanel {
         });
     }
 
-    async linkName(userId) {
-        const input = document.getElementById(`input-${userId}`);
-        if (!input) return;
+    renderRegisteredEmployeesList() {
+        const employeesSection = document.getElementById('registered-employees');
+        if (!employeesSection) return;
         
+        employeesSection.innerHTML = '<h4>Зарегистрированные сотрудники</h4>';
+        
+        // Форма добавления нового сотрудника
+        const addForm = document.createElement('div');
+        addForm.className = 'add-employee-form';
+        addForm.innerHTML = `
+            <input type="text" id="new-employee-name" placeholder="Имя сотрудника из таблицы">
+            <button onclick="adminPanel.addEmployee()">Добавить</button>
+        `;
+        employeesSection.appendChild(addForm);
+        
+        // Список сотрудников
+        const list = document.createElement('div');
+        list.className = 'employees-list';
+        
+        if (this.registeredEmployees.length === 0) {
+            list.innerHTML = '<div class="no-employees">Нет зарегистрированных сотрудников</div>';
+        } else {
+            this.registeredEmployees.forEach(employee => {
+                const item = document.createElement('div');
+                item.className = 'employee-item';
+                item.innerHTML = `
+                    <span>${employee}</span>
+                    <button class="remove-btn" onclick="adminPanel.removeEmployee('${employee.replace(/'/g, "\\'")}')">×</button>
+                `;
+                list.appendChild(item);
+            });
+        }
+        
+        employeesSection.appendChild(list);
+    }
+
+    async addEmployee() {
+        const input = document.getElementById('new-employee-name');
         const name = input.value.trim();
         
         if (!name) {
@@ -87,37 +107,31 @@ class AdminPanel {
             return;
         }
 
-        const user = this.users[userId];
-        if (!user) return;
-        
-        const currentNames = user.sheetNames || [];
-        
-        if (currentNames.includes(name)) {
-            alert('Это имя уже привязано к пользователю');
+        if (this.registeredEmployees.includes(name)) {
+            alert('Этот сотрудник уже зарегистрирован');
             return;
         }
 
-        const updatedNames = [...currentNames, name];
-        await firebaseService.updateUser(userId, { sheetNames: updatedNames });
-        
-        this.users[userId].sheetNames = updatedNames;
-        input.value = '';
-        
-        this.renderUsersList();
-        this.updateRegisteredEmployees();
+        const success = await firebaseService.addRegisteredEmployee(name);
+        if (success) {
+            await this.loadRegisteredEmployees();
+            this.renderRegisteredEmployeesList();
+            this.updateScheduleApp();
+            input.value = '';
+        } else {
+            alert('Ошибка при добавлении сотрудника');
+        }
     }
 
-    async unlinkName(userId, nameToRemove) {
-        const user = this.users[userId];
-        if (!user) return;
-        
-        const updatedNames = (user.sheetNames || []).filter(name => name !== nameToRemove);
-        
-        await firebaseService.updateUser(userId, { sheetNames: updatedNames });
-        this.users[userId].sheetNames = updatedNames;
-        
-        this.renderUsersList();
-        this.updateRegisteredEmployees();
+    async removeEmployee(employeeName) {
+        const success = await firebaseService.removeRegisteredEmployee(employeeName);
+        if (success) {
+            await this.loadRegisteredEmployees();
+            this.renderRegisteredEmployeesList();
+            this.updateScheduleApp();
+        } else {
+            alert('Ошибка при удалении сотрудника');
+        }
     }
 
     async toggleAdmin(userId, isAdmin) {
@@ -125,20 +139,9 @@ class AdminPanel {
         this.users[userId].isAdmin = isAdmin;
     }
 
-    updateRegisteredEmployees() {
-        const allEmployees = new Set();
-        
-        Object.values(this.users).forEach(user => {
-            if (user.sheetNames && Array.isArray(user.sheetNames)) {
-                user.sheetNames.forEach(name => allEmployees.add(name.trim()));
-            }
-        });
-        
-        window.registeredEmployees = Array.from(allEmployees);
-        console.log('Обновленные зарегистрированные сотрудники:', window.registeredEmployees);
-        
+    updateScheduleApp() {
         if (window.scheduleApp) {
-            window.scheduleApp.loadAllUsersData().then(() => {
+            window.scheduleApp.loadRegisteredEmployees().then(() => {
                 window.scheduleApp.render();
             });
         }
