@@ -25,8 +25,8 @@ class FirebaseService {
             await set(ref(this.db, 'users/' + userData.id), {
                 id: userData.id,
                 username: userData.username || '',
-                firstName: userData.first_name || '',
-                lastName: userData.last_name || '',
+                firstName: userData.firstName || '',
+                lastName: userData.lastName || '',
                 isAdmin: userData.isAdmin || false,
                 sheetNames: userData.sheetNames || [],
                 color: userData.color || { h: 200, s: 80, l: 60 },
@@ -72,10 +72,10 @@ class FirebaseService {
         }
     }
 
-    // Сохранение настроек фильтра
+    // Сохранение настроек фильтра пользователя
     async saveFilterSettings(userId, settings) {
         try {
-            await set(ref(this.db, `filterSettings/${userId}`), settings);
+            await set(ref(this.db, `userSettings/${userId}/filter`), settings);
             return true;
         } catch (error) {
             console.error('Ошибка сохранения настроек фильтра:', error);
@@ -83,14 +83,36 @@ class FirebaseService {
         }
     }
 
-    // Получение настроек фильтра
+    // Получение настроек фильтра пользователя
     async getFilterSettings(userId) {
         try {
-            const snapshot = await get(child(ref(this.db), `filterSettings/${userId}`));
+            const snapshot = await get(child(ref(this.db), `userSettings/${userId}/filter`));
             return snapshot.exists() ? snapshot.val() : { showOnlyMine: false };
         } catch (error) {
             console.error('Ошибка получения настроек фильтра:', error);
             return { showOnlyMine: false };
+        }
+    }
+
+    // Сохранение глобальных настроек отображения
+    async saveGlobalFilterSettings(settings) {
+        try {
+            await set(ref(this.db, 'globalSettings/filter'), settings);
+            return true;
+        } catch (error) {
+            console.error('Ошибка сохранения глобальных настроек:', error);
+            return false;
+        }
+    }
+
+    // Получение глобальных настроек отображения
+    async getGlobalFilterSettings() {
+        try {
+            const snapshot = await get(child(ref(this.db), 'globalSettings/filter'));
+            return snapshot.exists() ? snapshot.val() : { showOnlyRegistered: true };
+        } catch (error) {
+            console.error('Ошибка получения глобальных настроек:', error);
+            return { showOnlyRegistered: true };
         }
     }
 }
