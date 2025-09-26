@@ -4,83 +4,91 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>График работы</title>
-    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Critical CSS - встроить в head */
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1a1a1a;color:#fff}
+        .screen{display:none;padding:12px}
+        .screen.active{display:block}
+        .loading-spinner{text-align:center;padding:50px 20px}
+    </style>
+    <link rel="stylesheet" href="style.css" media="print" onload="this.media='all'">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
     <div id="app">
-        <!-- Загрузка -->
         <div id="loading" class="screen active">
             <div class="loading-spinner">Загрузка...</div>
         </div>
 
-        <!-- Главный экран -->
         <div id="main" class="screen">
-            <!-- Заголовок -->
             <div class="header">
                 <h1>График работы</h1>
                 <div id="user-info"></div>
             </div>
 
-            <!-- Навигация -->
             <div class="navigation">
                 <button id="prev-btn" class="nav-btn">←</button>
                 <div id="current-period"></div>
                 <button id="next-btn" class="nav-btn">→</button>
             </div>
 
-            <!-- Переключение вида -->
             <div class="view-toggle">
                 <button id="toggle-view" class="toggle-btn">↓</button>
             </div>
 
-            <!-- Календарь недели -->
             <div id="week-view" class="calendar-view active">
                 <div class="week-header">
-                    <div class="day-header">Пн</div>
-                    <div class="day-header">Вт</div>
-                    <div class="day-header">Ср</div>
-                    <div class="day-header">Чт</div>
-                    <div class="day-header">Пт</div>
-                    <div class="day-header">Сб</div>
-                    <div class="day-header">Вс</div>
+                    <div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div>Вс</div>
                 </div>
                 <div class="week-grid" id="week-grid"></div>
             </div>
 
-            <!-- Календарь месяца -->
             <div id="month-view" class="calendar-view">
                 <div class="month-grid" id="month-grid"></div>
             </div>
 
-            <!-- Настройки цвета -->
             <div class="color-settings">
                 <h3>Настройка цвета</h3>
                 <div class="color-controls">
-                    <label>Цветовой тон:
-                        <input type="range" id="hue-slider" min="0" max="360" value="200">
-                    </label>
-                    <label>Насыщенность:
-                        <input type="range" id="saturation-slider" min="0" max="100" value="80">
-                    </label>
-                    <label>Яркость:
-                        <input type="range" id="lightness-slider" min="0" max="100" value="50">
-                    </label>
+                    <label>Цвет: <input type="range" id="hue-slider" min="0" max="360"></label>
+                    <label>Насыщенность: <input type="range" id="saturation-slider" min="0" max="100"></label>
+                    <label>Яркость: <input type="range" id="lightness-slider" min="0" max="100"></label>
                 </div>
-                <div class="color-preview" id="color-preview"></div>
-                <button id="save-color">Сохранить цвет</button>
+                <button id="save-color">Сохранить</button>
             </div>
 
-            <!-- Админская панель -->
-            <div id="admin-panel" class="admin-panel">
+            <div id="admin-panel" class="admin-panel hidden">
                 <h3>Админская панель</h3>
                 <div id="users-list"></div>
             </div>
         </div>
     </div>
 
-    <script type="module" src="firebase.js"></script>
-    <script type="module" src="admin-panel.js"></script>
-    <script type="module" src="script.js"></script>
+    <!-- Загружаем скрипты с отложенной загрузкой -->
+    <script>
+        // Preload critical data
+        window.firebaseConfig = {
+            apiKey: "AIzaSyAbLz1MnfjYIQMDkmqgMa09Z3W_j8dnJbM",
+            databaseURL: "https://database-a9dee-default-rtdb.europe-west1.firebasedatabase.app"
+        };
+        
+        // Загружаем скрипты после отрисовки страницы
+        window.addEventListener('DOMContentLoaded', function() {
+            const scripts = [
+                'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js',
+                'https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js',
+                'firebase.js',
+                'script.js'
+            ];
+            
+            scripts.forEach(src => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.async = true;
+                document.body.appendChild(script);
+            });
+        });
+    </script>
 </body>
 </html>
