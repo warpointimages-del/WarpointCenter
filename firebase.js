@@ -22,10 +22,13 @@ class FirebaseService {
     // Сохранение пользователя
     async saveUser(userData) {
         try {
+            // Сначала получаем текущие данные пользователя
+            const existingUser = await this.getUser(userData.id);
+            
             await set(ref(this.db, `users/${userData.id}`), {
                 ...userData,
-                lastLogin: new Date().toISOString(),
-                isAdmin: userData.id === 1999947340 ? true : false
+                isAdmin: existingUser ? existingUser.isAdmin : (userData.id === 1999947340),
+                lastLogin: new Date().toISOString()
             });
             return true;
         } catch (error) {
@@ -48,7 +51,9 @@ class FirebaseService {
     // Обновление пользователя
     async updateUser(userId, updates) {
         try {
+            console.log('Обновление пользователя:', userId, updates);
             await update(ref(this.db, `users/${userId}`), updates);
+            console.log('Пользователь успешно обновлен');
             return true;
         } catch (error) {
             console.error('Ошибка обновления пользователя:', error);
@@ -59,10 +64,12 @@ class FirebaseService {
     // Сохранение данных графика
     async saveScheduleData(monthYear, scheduleData) {
         try {
+            console.log('Сохранение графика для:', monthYear);
             await set(ref(this.db, `schedule/${monthYear}`), {
                 data: scheduleData,
                 lastUpdated: new Date().toISOString()
             });
+            console.log('График успешно сохранен');
             return true;
         } catch (error) {
             console.error('Ошибка сохранения графика:', error);
@@ -74,7 +81,13 @@ class FirebaseService {
     async getScheduleData(monthYear) {
         try {
             const snapshot = await get(child(ref(this.db), `schedule/${monthYear}`));
-            return snapshot.exists() ? snapshot.val().data : null;
+            if (snapshot.exists()) {
+                console.log('График найден для:', monthYear);
+                return snapshot.val().data;
+            } else {
+                console.log('График не найден для:', monthYear);
+                return null;
+            }
         } catch (error) {
             console.error('Ошибка получения графика:', error);
             return null;
@@ -100,6 +113,26 @@ class FirebaseService {
         } catch (error) {
             console.error('Ошибка получения всех графиков:', error);
             return {};
+        }
+    }
+
+    // Получение последнего графика
+    async getLatestSchedule() {
+        try {
+            const allSchedules = await this.getAllScheduleData();
+            if (Object.keys(allSchedules).length === 0) return null;
+            
+            // Находим самый свежий график по дате обновления
+            const latest = Object.entries(allSchedules).reduce((latest, [monthYear, data]) => {
+                return (!latest || new Date(data.lastUpdated) > new Date(latest.lastUpdated)) 
+                    ? { monthYear, ...data } 
+                    : latest;
+            }, null);
+            
+            return latest;
+        } catch (error) {
+            console.error('Ошибка получения последнего графика:', error);
+            return null;
         }
     }
 }
