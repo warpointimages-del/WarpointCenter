@@ -504,9 +504,19 @@ class ScheduleApp {
         return allEmployees;
     }
 
-    getRegisteredEmployeesFromUsers() {
-        return window.registeredEmployees || [];
-    }
+getRegisteredEmployeesFromUsers() {
+    // Должны возвращаться ВСЕ имена, привязанные ко ВСЕМ пользователям
+    const allEmployees = new Set();
+    
+    Object.values(this.usersData).forEach(user => {
+        if (user.sheetNames && Array.isArray(user.sheetNames)) {
+            user.sheetNames.forEach(name => allEmployees.add(name.trim()));
+        }
+    });
+    
+    console.log('Зарегистрированные сотрудники:', Array.from(allEmployees));
+    return Array.from(allEmployees);
+}
     // ОБНОВЛЕННЫЙ МЕТОД - цвет берется из базы данных пользователя
     getEmployeeColor(employeeName) {
         // Ищем пользователя, у которого привязано это имя сотрудника
