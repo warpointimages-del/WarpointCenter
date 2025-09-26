@@ -87,9 +87,11 @@ class AdminPanel {
             this.registeredEmployees.forEach(employee => {
                 const item = document.createElement('div');
                 item.className = 'employee-item';
+                // ИСПРАВЛЕНИЕ: корректное экранирование кавычек
+                const safeEmployeeName = employee.replace(/'/g, "\\'").replace(/"/g, '\\"');
                 item.innerHTML = `
                     <span>${employee}</span>
-                    <button class="remove-btn" onclick="adminPanel.removeEmployee('${employee.replace(/'/g, "\\'")}')">×</button>
+                    <button class="remove-btn" onclick="adminPanel.removeEmployee('${safeEmployeeName}')">×</button>
                 `;
                 list.appendChild(item);
             });
@@ -124,10 +126,6 @@ class AdminPanel {
     }
 
     async removeEmployee(employeeName) {
-        if (!confirm(`Удалить сотрудника "${employeeName}" из списка?`)) {
-            return;
-        }
-
         const success = await firebaseService.removeRegisteredEmployee(employeeName);
         if (success) {
             await this.loadRegisteredEmployees();
