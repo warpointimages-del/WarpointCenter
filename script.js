@@ -58,9 +58,7 @@ class ScheduleApp {
             this.user = existingUser;
             
             if (this.user.isAdmin) {
-                document.getElementById('admin-panel').classList.remove('hidden');
-                this.initializeAdminControls(); // Инициализируем админские контролы
-            }
+    document.getElementById('admin-panel').classList.remove('hidden');
             
             if (this.user.sheetNames && this.user.sheetNames.length > 0) {
                 document.getElementById('color-picker').classList.remove('hidden');
@@ -92,6 +90,9 @@ class ScheduleApp {
         this.globalFilterSettings.showOnlyRegistered = showOnlyRegistered;
         await firebaseService.saveGlobalFilterSettings(this.globalFilterSettings);
         this.render();
+        if (this.user && this.user.isAdmin) {
+    this.initializeAdminControls();
+}
     }
 
     async loadGlobalFilterSettings() {
