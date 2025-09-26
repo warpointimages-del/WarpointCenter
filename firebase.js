@@ -14,137 +14,100 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
+// Минимальная версия Firebase
 class FirebaseService {
     constructor() {
-        this.db = database;
+        this.db = null;
+        this.cache = new Map();
+        this.initPromise = this.initializeFirebase();
     }
 
-    // Сохранение пользователя
-    async saveUser(userData) {
+    async initializeFirebase() {
+        if (typeof firebase === 'undefined') {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            return this.initializeFirebase();
+        }
+
         try {
-            // Сначала получаем текущие данные пользователя
-            const existingUser = await this.getUser(userData.id);
-            
-            await set(ref(this.db, `users/${userData.id}`), {
-                ...userData,
-                isAdmin: existingUser ? existingUser.isAdmin : (userData.id === 1999947340),
-                lastLogin: new Date().toISOString()
-            });
-            return true;
+            const app = firebase.initializeApp(window.firebaseConfig);
+            this.db = firebase.database();
+            console.log('Firebase инициализирован');
         } catch (error) {
-            console.error('Ошибка сохранения пользователя:', error);
-            return false;
+            console.log('Firebase уже инициализирован');
         }
     }
 
-    // Получение пользователя
-    async getUser(userId) {
+    async ensureInit() {
+        await this.initPromise;
+    }
+
+    // Кэшированные запросы
+    async getWithCache(path) {
+        await this.ensureInit();
+        
+        if (this.cache.has(path)) {
+            return this.cache.get(path);
+        }
+
         try {
-            const snapshot = await get(child(ref(this.db), `users/${userId}`));
-            return snapshot.exists() ? snapshot.val() : null;
+            const snapshot = await this.db.ref(path).once('value');
+            const value = snapshot.exists() ? snapshot.val() : null;
+            this.cache.set(path, value);
+            return value;
         } catch (error) {
-            console.error('Ошибка получения пользователя:', error);
+            console.error('Firebase error:', error);
             return null;
         }
     }
 
-    // Обновление пользователя
-    async updateUser(userId, updates) {
+    async setWithCache(path, value) {
+        await this.ensureInit();
+        
         try {
-            console.log('Обновление пользователя:', userId, updates);
-            await update(ref(this.db, `users/${userId}`), updates);
-            console.log('Пользователь успешно обновлен');
+            await this.db.ref(path).set(value);
+            this.cache.set(path, value);
             return true;
         } catch (error) {
-            console.error('Ошибка обновления пользователя:', error);
+            console.error('Firebase set error:', error);
             return false;
         }
     }
 
-// Сохранение данных графика
-async saveScheduleData(monthYear, scheduleData) {
-    try {
-        console.log('Сохранение графика для:', monthYear, scheduleData);
-        
-        // Проверяем, есть ли вообще данные для сохранения
-        if (!scheduleData || !scheduleData.employees || scheduleData.employees.length === 0) {
-            console.log('Нет данных для сохранения');
-            return false;
-        }
-        
-        const scheduleRef = ref(this.db, `schedule/${monthYear}`);
-        await set(scheduleRef, {
+    async updateUser(userId, updates) {
+        const path = `users/${userId}`;
+        const current = await this.getWithCache(path) || {};
+        return this.setWithCache(path, { ...current, ...updates });
+    }
+
+    async getUser(userId) {
+        return this.getWithCache(`users/${userId}`);
+    }
+
+    async saveUser(userData) {
+        const path = `users/${userData.id}`;
+        const existing = await this.getWithCache(path) || {};
+        return this.setWithCache(path, {
+            ...existing,
+            ...userData,
+            lastLogin: new Date().toISOString()
+        });
+    }
+
+    async getScheduleData(monthYear) {
+        const data = await this.getWithCache(`schedule/${monthYear}`);
+        return data ? data.data : null;
+    }
+
+    async saveScheduleData(monthYear, scheduleData) {
+        return this.setWithCache(`schedule/${monthYear}`, {
             data: scheduleData,
             lastUpdated: new Date().toISOString()
         });
-        
-        console.log('График успешно сохранен в Firebase');
-        return true;
-        
-    } catch (error) {
-        console.error('Ошибка сохранения графика:', error);
-        return false;
-    }
-}
-
-    // Получение данных графика
-    async getScheduleData(monthYear) {
-        try {
-            const snapshot = await get(child(ref(this.db), `schedule/${monthYear}`));
-            if (snapshot.exists()) {
-                console.log('График найден для:', monthYear);
-                return snapshot.val().data;
-            } else {
-                console.log('График не найден для:', monthYear);
-                return null;
-            }
-        } catch (error) {
-            console.error('Ошибка получения графика:', error);
-            return null;
-        }
     }
 
-    // Получение всех пользователей
     async getAllUsers() {
-        try {
-            const snapshot = await get(child(ref(this.db), 'users'));
-            return snapshot.exists() ? snapshot.val() : {};
-        } catch (error) {
-            console.error('Ошибка получения пользователей:', error);
-            return {};
-        }
-    }
-
-    // Получение всех данных графика
-    async getAllScheduleData() {
-        try {
-            const snapshot = await get(child(ref(this.db), 'schedule'));
-            return snapshot.exists() ? snapshot.val() : {};
-        } catch (error) {
-            console.error('Ошибка получения всех графиков:', error);
-            return {};
-        }
-    }
-
-    // Получение последнего графика
-    async getLatestSchedule() {
-        try {
-            const allSchedules = await this.getAllScheduleData();
-            if (Object.keys(allSchedules).length === 0) return null;
-            
-            // Находим самый свежий график по дате обновления
-            const latest = Object.entries(allSchedules).reduce((latest, [monthYear, data]) => {
-                return (!latest || new Date(data.lastUpdated) > new Date(latest.lastUpdated)) 
-                    ? { monthYear, ...data } 
-                    : latest;
-            }, null);
-            
-            return latest;
-        } catch (error) {
-            console.error('Ошибка получения последнего графика:', error);
-            return null;
-        }
+        return this.getWithCache('users') || {};
     }
 }
 
-export const firebaseService = new FirebaseService();
+window.firebaseService = new FirebaseService();
