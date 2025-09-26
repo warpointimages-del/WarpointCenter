@@ -308,8 +308,8 @@ class ScheduleApp {
         
         this.scheduleData = {};
         
-        // Ищем строку с датами
-        const dateRowInfo = this.findDateRowWithOffset(data);
+        // Ищем строку с датами - теперь ищем последовательность чисел 1,2,3,4...
+        const dateRowInfo = this.findDateRowSequential(data);
         console.log('Найдена строка с датами:', dateRowInfo);
         
         if (!dateRowInfo) {
@@ -318,7 +318,7 @@ class ScheduleApp {
         }
         
         const { rowIndex: dateRowIndex, startCol: dateStartCol } = dateRowInfo;
-        const dates = this.extractDatesFromRow(data[dateRowIndex], dateStartCol);
+        const dates = this.extractSequentialDates(data[dateRowIndex], dateStartCol);
         console.log('Извлеченные даты:', dates);
         
         if (dates.length === 0) {
@@ -331,7 +331,8 @@ class ScheduleApp {
             const row = data[i];
             if (!row || row.length === 0) continue;
             
-            const employeeName = this.extractEmployeeName(row[dateStartCol - 1]); // Имя сотрудника в колонке перед датами
+            // Имя сотрудника должно быть в колонке перед датами
+            const employeeName = this.extractEmployeeName(row[dateStartCol - 1]); 
             if (!employeeName) continue;
             
             console.log(`Обрабатываем сотрудника: "${employeeName}"`);
@@ -372,106 +373,70 @@ class ScheduleApp {
         }
     }
 
-    findDateRowWithOffset(data) {
-        // Ищем строку, которая содержит числа (даты) в ячейках
-        // Проверяем первые 10 строк
+    findDateRowSequential(data) {
+        // Ищем строку, которая содержит последовательные числа 1,2,3,4...
         for (let rowIndex = 0; rowIndex < Math.min(10, data.length); rowIndex++) {
             const row = data[rowIndex];
-            if (!row || row.length < 2) continue;
+            if (!row || row.length < 5) continue;
             
-            // Ищем колонку, с которой начинаются даты
-            for (let startCol = 1; startCol < Math.min(15, row.length); startCol++) {
-                let dateCount = 0;
-                let consecutiveDates = 0;
-                let maxConsecutive = 0;
-                
-                // Проверяем несколько следующих ячеек на наличие дат
-                for (let j = startCol; j < Math.min(startCol + 10, row.length); j++) {
-                    if (this.extractDateNumber(row[j]) !== null) {
-                        dateCount++;
-                        consecutiveDates++;
-                        maxConsecutive = Math.max(maxConsecutive, consecutiveDates);
-                    } else {
-                        consecutiveDates = 0;
-                    }
-                }
-                
-                // Если найдено несколько последовательных дат, считаем это началом строки с датами
-                if (maxConsecutive >= 3) {
-                    console.log(`Найдена строка с датами: строка ${rowIndex}, колонка ${startCol}, последовательных дат: ${maxConsecutive}`);
+            console.log(`Проверяем строку ${rowIndex}:`, row);
+            
+            // Пробуем разные стартовые колонки
+            for (let startCol = 0; startCol < Math.min(10, row.length); startCol++) {
+                // Проверяем есть ли последовательность чисел начиная с этой колонки
+                const sequence = this.checkNumberSequence(row, startCol);
+                if (sequence.length >= 5) { // Минимум 5 последовательных чисел
+                    console.log(`Найдена последовательность чисел в строке ${rowIndex}, колонка ${startCol}:`, sequence);
                     return { rowIndex, startCol };
                 }
             }
         }
         
-        // Если не нашли с тремя последовательными датами, пробуем с двумя
-        for (let rowIndex = 0; rowIndex < Math.min(10, data.length); rowIndex++) {
-            const row = data[rowIndex];
-            if (!row || row.length < 2) continue;
-            
-            for (let startCol = 1; startCol < Math.min(15, row.length); startCol++) {
-                let dateCount = 0;
-                let consecutiveDates = 0;
-                let maxConsecutive = 0;
-                
-                for (let j = startCol; j < Math.min(startCol + 10, row.length); j++) {
-                    if (this.extractDateNumber(row[j]) !== null) {
-                        dateCount++;
-                        consecutiveDates++;
-                        maxConsecutive = Math.max(maxConsecutive, consecutiveDates);
-                    } else {
-                        consecutiveDates = 0;
-                    }
-                }
-                
-                if (maxConsecutive >= 2) {
-                    console.log(`Найдена строка с датами (минимум 2): строка ${rowIndex}, колонка ${startCol}`);
-                    return { rowIndex, startCol };
-                }
-            }
-        }
-        
-        // Если все еще не нашли, пробуем найти хотя бы одну дату
-        for (let rowIndex = 0; rowIndex < Math.min(10, data.length); rowIndex++) {
-            const row = data[rowIndex];
-            if (!row || row.length < 2) continue;
-            
-            for (let startCol = 1; startCol < Math.min(15, row.length); startCol++) {
-                if (this.extractDateNumber(row[startCol]) !== null) {
-                    // Проверяем есть ли еще хотя бы одна дата в следующих ячейках
-                    let additionalDates = 0;
-                    for (let j = startCol + 1; j < Math.min(startCol + 5, row.length); j++) {
-                        if (this.extractDateNumber(row[j]) !== null) {
-                            additionalDates++;
-                            break;
-                        }
-                    }
-                    
-                    if (additionalDates > 0) {
-                        console.log(`Найдена строка с датами (хотя бы 2 отдельные): строка ${rowIndex}, колонка ${startCol}`);
-                        return { rowIndex, startCol };
-                    }
-                }
-            }
-        }
-        
-        console.log('Не найдено подходящей строки с датами');
+        console.log('Не найдено строк с последовательными числами');
         return null;
     }
 
-    extractDatesFromRow(row, startCol) {
-        const dates = [];
-        if (!row || startCol >= row.length) return dates;
+    checkNumberSequence(row, startCol) {
+        const sequence = [];
+        let expectedNumber = 1;
         
-        for (let i = startCol; i < row.length; i++) {
-            const dateValue = row[i];
-            if (dateValue) {
-                const dateNum = this.extractDateNumber(dateValue);
-                if (dateNum !== null) {
-                    dates.push(dateNum);
-                } else {
-                    // Если встретили не-дату, возможно это конец последовательности дат
-                    // Но продолжаем на случай если есть пропуски
+        for (let i = startCol; i < Math.min(startCol + 31, row.length); i++) {
+            const cellValue = row[i];
+            const number = this.extractDateNumber(cellValue);
+            
+            if (number === expectedNumber) {
+                sequence.push(number);
+                expectedNumber++;
+            } else if (number !== null) {
+                // Если число есть, но не последовательное, прерываем последовательность
+                break;
+            } else {
+                // Если ячейка пустая или не число, продолжаем проверять следующие
+                // (возможно есть пропуски в датах)
+                expectedNumber++;
+            }
+        }
+        
+        return sequence;
+    }
+
+    extractSequentialDates(row, startCol) {
+        const dates = [];
+        let currentNumber = 1;
+        
+        for (let i = startCol; i < Math.min(startCol + 31, row.length); i++) {
+            const cellValue = row[i];
+            const number = this.extractDateNumber(cellValue);
+            
+            // Если находим число, добавляем его в даты
+            if (number !== null) {
+                dates.push(number);
+                currentNumber = number + 1;
+            } else {
+                // Если ячейка пустая, но мы еще в пределах месяца, добавляем ожидаемое число
+                if (currentNumber <= 31) {
+                    dates.push(currentNumber);
+                    currentNumber++;
                 }
             }
         }
@@ -482,7 +447,6 @@ class ScheduleApp {
     extractDateNumber(value) {
         if (!value) return null;
         
-        // Пробуем разные форматы чисел
         const str = value.toString().trim();
         
         // Прямое число
@@ -547,6 +511,20 @@ class ScheduleApp {
             const hourNum = parseFloat(hourMatch[1].replace(',', '.'));
             if (!isNaN(hourNum)) {
                 return hourNum;
+            }
+        }
+        
+        // Формат времени "10:30 - 20:00"
+        const timeMatch = str.match(/(\d+):(\d+)\s*-\s*(\d+):(\d+)/);
+        if (timeMatch) {
+            const startHours = parseInt(timeMatch[1]);
+            const startMinutes = parseInt(timeMatch[2]);
+            const endHours = parseInt(timeMatch[3]);
+            const endMinutes = parseInt(timeMatch[4]);
+            
+            const totalMinutes = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
+            if (totalMinutes > 0) {
+                return totalMinutes / 60; // Конвертируем минуты в часы
             }
         }
         
