@@ -9,6 +9,7 @@ body {
     color: #ffffff;
     font-family: 'Segoe UI', system-ui, sans-serif;
     line-height: 1.4;
+    padding: 0;
 }
 
 .hidden {
@@ -18,49 +19,73 @@ body {
 #app {
     min-height: 100vh;
     padding: 16px;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
 #loading {
     text-align: center;
     padding: 50px 20px;
     font-size: 18px;
+    color: #888;
 }
 
 .header {
     margin-bottom: 20px;
+    text-align: center;
 }
 
 .header h1 {
     font-size: 24px;
     font-weight: 600;
     margin-bottom: 16px;
+    color: #fff;
 }
 
 .view-controls {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 16px;
 }
 
 .nav-btn {
     background: #1e1e1e;
     color: #ffffff;
     border: none;
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     font-size: 18px;
     cursor: pointer;
     transition: background 0.2s;
+    border-radius: 0;
 }
 
 .nav-btn:hover {
     background: #2a2a2a;
 }
 
-#current-period {
+.period-display {
     font-size: 16px;
     font-weight: 500;
+    min-width: 200px;
+    text-align: center;
+}
+
+.employee-selection {
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+#employee-select {
+    background: #1e1e1e;
+    color: #fff;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 0;
+    font-size: 14px;
+    width: 200px;
 }
 
 .calendar-view {
@@ -69,41 +94,9 @@ body {
 
 .week-grid {
     display: grid;
-    grid-template-columns: 80px repeat(7, 1fr);
+    grid-template-columns: 120px repeat(7, 1fr);
     gap: 1px;
     background: #2a2a2a;
-}
-
-.week-header {
-    background: #1a1a1a;
-    padding: 12px 8px;
-    text-align: center;
-    font-weight: 500;
-}
-
-.day-cell {
-    background: #1e1e1e;
-    min-height: 60px;
-    padding: 8px;
-    position: relative;
-}
-
-.date-number {
-    font-size: 14px;
-    margin-bottom: 4px;
-}
-
-.shift-strip {
-    position: absolute;
-    height: 4px;
-    background: #ff6b6b;
-    transform: skewX(-15deg);
-    border-radius: 0;
-    z-index: 1;
-}
-
-.employee-shift {
-    margin: 2px 0;
     font-size: 12px;
 }
 
@@ -112,17 +105,86 @@ body {
     grid-template-columns: repeat(7, 1fr);
     gap: 1px;
     background: #2a2a2a;
+    font-size: 11px;
+}
+
+.week-header, .month-header {
+    background: #1a1a1a;
+    padding: 12px 4px;
+    text-align: center;
+    font-weight: 500;
+    font-size: 11px;
+}
+
+.employee-name {
+    background: #1a1a1a;
+    padding: 8px 4px;
+    text-align: left;
+    font-size: 11px;
+    border-right: 1px solid #2a2a2a;
+}
+
+.user-employee {
+    background: #2a1a2a;
+    font-weight: 600;
+}
+
+.day-cell, .month-day {
+    background: #1e1e1e;
+    min-height: 50px;
+    padding: 4px;
+    position: relative;
+    border: none;
 }
 
 .month-day {
-    background: #1e1e1e;
-    min-height: 80px;
-    padding: 8px;
-    position: relative;
+    min-height: 70px;
 }
 
-.month-day .date-number {
-    font-weight: 500;
+.day-cell.today, .month-day.today {
+    background: #2a2a2a;
+}
+
+.empty {
+    background: #121212;
+}
+
+.date-number {
+    font-size: 10px;
+    margin-bottom: 2px;
+    color: #888;
+}
+
+.today .date-number {
+    color: #fff;
+    font-weight: 600;
+}
+
+.shift-strip {
+    position: absolute;
+    height: 3px;
+    background: #ff6b6b;
+    transform: skewX(-15deg);
+    border-radius: 0;
+    z-index: 1;
+    left: 4px;
+    right: 4px;
+    bottom: 8px;
+}
+
+.long-shift {
+    height: 4px;
+    bottom: 12px;
+}
+
+.month-day .shift-strip {
+    height: 2px;
+    bottom: 4px;
+}
+
+.month-day .long-shift {
+    height: 3px;
+    bottom: 8px;
 }
 
 .toggle-container {
@@ -139,6 +201,7 @@ body {
     font-size: 16px;
     cursor: pointer;
     transition: background 0.2s;
+    border-radius: 0;
 }
 
 .toggle-btn:hover {
@@ -154,7 +217,8 @@ body {
 
 #user-panel h3 {
     margin-bottom: 16px;
-    font-size: 18px;
+    font-size: 16px;
+    color: #fff;
 }
 
 .color-controls {
@@ -167,15 +231,17 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
+    font-size: 12px;
 }
 
 .slider-group span:first-child {
-    width: 20px;
+    width: 100px;
+    text-align: right;
 }
 
 input[type="range"] {
     flex: 1;
-    height: 6px;
+    height: 4px;
     background: #2a2a2a;
     outline: none;
     border-radius: 0;
@@ -183,8 +249,8 @@ input[type="range"] {
 
 input[type="range"]::-webkit-slider-thumb {
     appearance: none;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     background: #ffffff;
     cursor: pointer;
     border-radius: 0;
@@ -212,17 +278,46 @@ input[type="range"]::-webkit-slider-thumb {
     cursor: pointer;
     border-radius: 0;
     transition: background 0.2s;
+    font-size: 12px;
 }
 
 #save-color:hover {
     background: #1d4ed8;
 }
 
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #2563eb;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 0;
+    z-index: 1000;
+    font-size: 14px;
+}
+
+.error-message {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #dc2626;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 0;
+    z-index: 1000;
+}
+
 /* Адаптивность для мобильных устройств */
 @media (max-width: 768px) {
+    #app {
+        padding: 8px;
+    }
+    
     .week-grid {
-        grid-template-columns: 60px repeat(7, 1fr);
-        font-size: 12px;
+        grid-template-columns: 100px repeat(7, 1fr);
+        font-size: 10px;
     }
     
     .month-grid {
@@ -231,10 +326,26 @@ input[type="range"]::-webkit-slider-thumb {
     
     .month-day {
         min-height: 60px;
-        font-size: 11px;
+        font-size: 10px;
     }
     
     .header h1 {
         font-size: 20px;
+    }
+    
+    .employee-name {
+        font-size: 10px;
+        padding: 6px 2px;
+    }
+    
+    .slider-group {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .slider-group span:first-child {
+        width: auto;
+        text-align: left;
     }
 }
