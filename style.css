@@ -41,27 +41,148 @@ body {
 
 .user-item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    padding: 8px;
+    padding: 12px;
     border-bottom: 1px solid #333;
-    gap: 10px;
+    gap: 15px;
 }
 
 .user-info {
     flex: 1;
 }
 
-.user-name-input {
+.user-info strong {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 16px;
+}
+
+.user-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 200px;
+}
+
+.name-input-group {
+    display: flex;
+    gap: 5px;
+}
+
+.employee-select {
+    flex: 1;
     background-color: #333;
     border: 1px solid #555;
     color: #fff;
-    padding: 4px 8px;
-    width: 150px;
+    padding: 5px;
+    min-width: 150px;
+}
+
+.link-btn, .unlink-btn {
+    background-color: #444;
+    border: none;
+    color: #fff;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.link-btn:hover, .unlink-btn:hover {
+    background-color: #555;
+}
+
+.unlink-btn {
+    margin-left: 5px;
+    padding: 1px 5px;
+    border-radius: 50%;
+    font-size: 10px;
+}
+
+.attached-names {
+    margin-top: 8px;
+}
+
+.attached-names strong {
+    font-size: 12px;
+    color: #ccc;
+}
+
+.attached-name {
+    display: inline-block;
+    background-color: #333;
+    padding: 3px 8px;
+    margin: 3px 5px 3px 0;
+    border-radius: 4px;
+    font-size: 11px;
+    border: 1px solid #555;
+}
+
+.no-names {
+    font-style: italic;
+    color: #888;
+    font-size: 12px;
+}
+
+.admin-control {
+    margin-top: 8px;
 }
 
 .admin-checkbox {
-    margin-left: 10px;
+    margin-right: 5px;
+}
+
+/* Зарегистрированные сотрудники */
+.add-employee-form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.add-employee-form input {
+    flex: 1;
+    background-color: #333;
+    border: 1px solid #555;
+    color: #fff;
+    padding: 8px;
+}
+
+.add-employee-form button {
+    background-color: #444;
+    border: none;
+    color: #fff;
+    padding: 8px 15px;
+    cursor: pointer;
+}
+
+.employees-list {
+    border-top: 1px solid #333;
+    padding-top: 10px;
+}
+
+.employee-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    border-bottom: 1px solid #333;
+}
+
+.remove-btn {
+    background-color: #ff4444;
+    border: none;
+    color: white;
+    padding: 3px 8px;
+    cursor: pointer;
+    border-radius: 3px;
+}
+
+.no-employees {
+    text-align: center;
+    color: #888;
+    font-style: italic;
+    padding: 20px;
 }
 
 /* Панель фильтров */
@@ -182,6 +303,7 @@ body {
     padding: 4px;
     background-color: #1e1e1e;
     border-right: 1px solid #333;
+    font-size: 12px;
 }
 
 .week-shift {
@@ -205,6 +327,7 @@ body {
     padding: 4px;
     background-color: #1e1e1e;
     border: 1px solid #333;
+    position: relative;
 }
 
 .month-day.other-month {
@@ -218,6 +341,7 @@ body {
 .day-number {
     font-size: 12px;
     margin-bottom: 2px;
+    font-weight: bold;
 }
 
 /* Параллелограммы смен */
@@ -240,84 +364,6 @@ body {
     color: #fff;
 }
 
-/* Ползунки */
-input[type="range"] {
-    -webkit-appearance: none;
-    width: 100%;
-    height: 4px;
-    background: #333;
-    outline: none;
-}
-
-input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 14px;
-    height: 14px;
-    background: #fff;
-    cursor: pointer;
-}
-
-input[type="range"]::-moz-range-thumb {
-    width: 14px;
-    height: 14px;
-    background: #fff;
-    cursor: pointer;
-    border: none;
-}
-
-.user-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    min-width: 200px;
-}
-
-.name-input-group {
-    display: flex;
-    gap: 5px;
-}
-
-.link-btn, .unlink-btn {
-    background-color: #444;
-    border: none;
-    color: #fff;
-    padding: 4px 8px;
-    cursor: pointer;
-    font-size: 12px;
-}
-
-.link-btn:hover, .unlink-btn:hover {
-    background-color: #555;
-}
-
-.unlink-btn {
-    margin-left: 5px;
-    padding: 1px 5px;
-    border-radius: 50%;
-}
-
-.attached-names {
-    margin-top: 5px;
-}
-
-.attached-name {
-    display: inline-block;
-    background-color: #333;
-    padding: 2px 6px;
-    margin: 2px;
-    border-radius: 3px;
-    font-size: 12px;
-}
-
-.no-names {
-    font-style: italic;
-    color: #888;
-}
-
-.admin-control {
-    margin-top: 5px;
-}
-
 /* Навигация по месяцам */
 .month-navigation {
     display: flex;
@@ -332,6 +378,7 @@ input[type="range"]::-moz-range-thumb {
     border: 1px solid #555;
     color: #fff;
     padding: 5px;
+    min-width: 150px;
 }
 
 .global-filter {
