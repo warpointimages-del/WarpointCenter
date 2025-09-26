@@ -9,6 +9,7 @@ class AdminPanel {
     async init() {
         await this.loadUsers();
         this.renderUsersList();
+        this.updateRegisteredEmployees();
     }
 
     async loadUsers() {
@@ -22,28 +23,45 @@ class AdminPanel {
         Object.values(this.users).forEach(user => {
             const userElement = document.createElement('div');
             userElement.className = 'user-item';
+            userElement.id = `user-${user.id}`;
+            
+            const sheetNames = user.sheetNames || [];
             
             userElement.innerHTML = `
                 <div class="user-info">
                     <strong>${user.firstName || ''} ${user.lastName || ''}</strong>
                     <div>@${user.username || 'нет username'}</div>
                     <div>ID: ${user.id}</div>
+                    <div class="attached-names">
+                        <strong>Привязанные имена:</strong>
+                        ${sheetNames.length > 0 ? 
+                            sheetNames.map(name => `
+                                <span class="attached-name">
+                                    ${name}
+                                    <button class="unlink-btn" onclick="adminPanel.unlinkName(${user.id}, '${name}')">×</button>
+                                </span>
+                            `).join('') : 
+                            '<span class="no-names">нет привязанных имен</span>'
+                        }
+                    </div>
                 </div>
-                <div>
-                    <input type="text" 
-                           class="user-name-input" 
-                           placeholder="Имя из таблицы"
-                           value="${user.sheetNames ? user.sheetNames.join(', ') : ''}"
-                           onchange="adminPanel.updateUserNames(${user.id}, this.value)">
-                </div>
-                <div>
-                    <label>
-                        <input type="checkbox" 
-                               class="admin-checkbox"
-                               ${user.isAdmin ? 'checked' : ''}
-                               onchange="adminPanel.toggleAdmin(${user.id}, this.checked)">
-                        Админ
-                    </label>
+                <div class="user-controls">
+                    <div class="name-input-group">
+                        <input type="text" 
+                               class="user-name-input" 
+                               id="input-${user.id}"
+                               placeholder="Имя из таблицы">
+                        <button class="link-btn" onclick="adminPanel.linkName(${user.id})">Привязать</button>
+                    </div>
+                    <div class="admin-control">
+                        <label>
+                            <input type="checkbox" 
+                                   class="admin-checkbox"
+                                   ${user.isAdmin ? 'checked' : ''}
+                                   onchange="adminPanel.toggleAdmin(${user.id}, this.checked)">
+                            Админ
+                        </label>
+                    </div>
                 </div>
             `;
             
@@ -51,13 +69,72 @@ class AdminPanel {
         });
     }
 
-    async updateUserNames(userId, namesString) {
-        const sheetNames = namesString.split(',').map(name => name.trim()).filter(name => name);
-        await firebaseService.updateUser(userId, { sheetNames });
+    async linkName(userId) {
+        const input = document.getElementById(`input-${userId}`);
+        const name = input.value.trim();
+        
+        if (!name) {
+            alert('Введите имя сотрудника');
+            return;
+        }
+
+        const user = this.users[userId];
+        const currentNames = user.sheetNames || [];
+        
+        if (currentNames.includes(name)) {
+            alert('Это имя уже привязано к пользователю');
+            return;
+        }
+
+        const updatedNames = [...currentNames, name];
+        await firebaseService.updateUser(userId, { sheetNames: updatedNames });
+        
+        // Обновляем данные пользователя
+        this.users[userId].sheetNames = updatedNames;
+        
+        // Очищаем поле ввода
+        input.value = '';
+        
+        // Перерисовываем список
+        this.renderUsersList();
+        this.updateRegisteredEmployees();
+    }
+
+    async unlinkName(userId, nameToRemove) {
+        const user = this.users[userId];
+        const updatedNames = user.sheetNames.filter(name => name !== nameToRemove);
+        
+        await firebaseService.updateUser(userId, { sheetNames: updatedNames });
+        
+        // Обновляем данные пользователя
+        this.users[userId].sheetNames = updatedNames;
+        
+        // Перерисовываем список
+        this.renderUsersList();
+        this.updateRegisteredEmployees();
     }
 
     async toggleAdmin(userId, isAdmin) {
         await firebaseService.updateUser(userId, { isAdmin });
+        this.users[userId].isAdmin = isAdmin;
+    }
+
+    // Новый метод для обновления списка зарегистрированных сотрудников
+    updateRegisteredEmployees() {
+        const allEmployees = new Set();
+        
+        Object.values(this.users).forEach(user => {
+            if (user.sheetNames) {
+                user.sheetNames.forEach(name => allEmployees.add(name));
+            }
+        });
+        
+        window.registeredEmployees = Array.from(allEmployees);
+        
+        // Обновляем отображение графика, если приложение уже запущено
+        if (window.scheduleApp) {
+            window.scheduleApp.render();
+        }
     }
 }
 
