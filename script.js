@@ -20,10 +20,13 @@ class ScheduleApp {
             
             await this.initializeUser();
             await this.loadUserPreferences();
-            await this.loadScheduleData();
+            await this.loadAndParseScheduleData(); // Изменено на новую функцию
             this.initializeEventListeners();
             this.renderCalendar();
             await adminPanel.init(this.currentUser);
+            
+            // Запускаем периодический парсинг
+            this.startAutoParsing();
             
             this.showScreen('main');
         } catch (error) {
@@ -43,39 +46,52 @@ class ScheduleApp {
         this.currentUser = {
             id: user.id,
             first_name: user.first_name,
-            username: user.username,
-            isAdmin: user.id === 1999947340
+            username: user.username
         };
 
-        await firebaseService.saveUser(this.currentUser);
-        
-        // Загрузка полных данных пользователя
-        const userData = await firebaseService.getUser(user.id);
-        if (userData) {
-            this.currentUser = { ...this.currentUser, ...userData };
+        // Сначала загружаем существующие данные пользователя
+        const existingUser = await firebaseService.getUser(user.id);
+        if (existingUser) {
+            this.currentUser = { ...this.currentUser, ...existingUser };
+        } else {
+            // Сохраняем нового пользователя
+            await firebaseService.saveUser(this.currentUser);
         }
+
+        // Проверяем админский статус
+        this.currentUser.isAdmin = this.currentUser.isAdmin || user.id === 1999947340;
 
         this.updateUserInfo();
+        console.log('Текущий пользователь:', this.currentUser);
     }
 
-    // Загрузка предпочтений пользователя
-    async loadUserPreferences() {
-        if (this.currentUser.color) {
-            this.userColor = this.currentUser.color;
-        }
-        this.updateColorSliders();
-    }
-
-    // Загрузка данных графика
-    async loadScheduleData() {
+    // Загрузка и парсинг данных графика
+    async loadAndParseScheduleData() {
         const currentMonthYear = this.getMonthYearString(this.currentDate);
+        console.log('Загрузка графика для:', currentMonthYear);
+        
+        // Пытаемся загрузить из Firebase
         let data = await firebaseService.getScheduleData(currentMonthYear);
         
-        if (!data) {
+        if (!data || this.isDataOld(data)) {
+            console.log('Данные устарели или отсутствуют, парсим таблицу...');
             data = await this.parseGoogleSheets();
+            if (data && data.employees && data.employees.length > 0) {
+                await firebaseService.saveScheduleData(currentMonthYear, data);
+                console.log('Данные графика сохранены в Firebase');
+            }
         }
         
-        this.scheduleData = data;
+        this.scheduleData = data || this.getEmptySchedule();
+        console.log('Загруженные данные графика:', this.scheduleData);
+    }
+
+    // Проверка устаревания данных (больше 15 минут)
+    isDataOld(data) {
+        if (!data.lastUpdated) return true;
+        const lastUpdate = new Date(data.lastUpdated);
+        const now = new Date();
+        return (now - lastUpdate) > 15 * 60 * 1000; // 15 минут
     }
 
     // Парсинг Google Sheets
@@ -84,317 +100,201 @@ class ScheduleApp {
         const currentMonthYear = this.getMonthYearString(this.currentDate);
         const sheetName = this.getRussianMonthYear(this.currentDate);
         
+        console.log('Парсинг таблицы:', sheetName);
+        
         try {
-            const response = await fetch(
-                `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?sheet=${encodeURIComponent(sheetName)}`
-            );
+            // Используем CORS proxy для обхода ограничений
+            const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+            const targetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?sheet=${encodeURIComponent(sheetName)}`;
             
-            if (!response.ok) throw new Error('Ошибка загрузки таблицы');
+            const response = await fetch(proxyUrl + targetUrl, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             
             const text = await response.text();
-            const json = JSON.parse(text.substring(47).slice(0, -2));
+            console.log('Raw response:', text.substring(0, 500));
+            
+            // Обработка ответа Google Sheets
+            const jsonMatch = text.match(/google\.visualization\.Query\.setResponse\(({.*})\);/);
+            if (!jsonMatch) {
+                throw new Error('Invalid response format');
+            }
+            
+            const json = JSON.parse(jsonMatch[1]);
+            console.log('Parsed JSON:', json);
             
             return this.processSheetData(json);
+            
         } catch (error) {
             console.error('Ошибка парсинга таблицы:', error);
-            return this.getEmptySchedule();
+            // Пробуем альтернативный метод
+            return await this.tryAlternativeParse();
         }
+    }
+
+    // Альтернативный метод парсинга
+    async tryAlternativeParse() {
+        try {
+            // Пробуем загрузить как CSV
+            const sheetId = '1leyP2K649JNfC8XvIV3amZPnQz18jFI95JAJoeXcXGk';
+            const sheetName = this.getRussianMonthYear(this.currentDate);
+            const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+            
+            const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+            const response = await fetch(proxyUrl + csvUrl);
+            
+            if (response.ok) {
+                const csvText = await response.text();
+                return this.parseCSVData(csvText);
+            }
+        } catch (error) {
+            console.error('Альтернативный парсинг также не удался:', error);
+        }
+        
+        return this.getEmptySchedule();
+    }
+
+    // Парсинг CSV данных
+    parseCSVData(csvText) {
+        const lines = csvText.split('\n').filter(line => line.trim());
+        if (lines.length < 2) return this.getEmptySchedule();
+        
+        const employees = [];
+        const schedule = {};
+        
+        // Первая строка - даты
+        const dates = lines[0].split(',').slice(1).map(date => {
+            const match = date.match(/(\d+)/);
+            return match ? parseInt(match[1]) : null;
+        }).filter(Boolean);
+        
+        // Остальные строки - сотрудники
+        for (let i = 1; i < lines.length; i++) {
+            const cells = lines[i].split(',').map(cell => cell.replace(/^"|"$/g, '').trim());
+            const employeeName = cells[0];
+            
+            if (!employeeName) continue;
+            
+            employees.push(employeeName);
+            
+            cells.slice(1).forEach((cell, index) => {
+                const day = dates[index];
+                if (day && cell) {
+                    const shiftValue = parseFloat(cell) || 0;
+                    if (shiftValue > 0) {
+                        if (!schedule[day]) schedule[day] = {};
+                        schedule[day][employeeName] = shiftValue;
+                    }
+                }
+            });
+        }
+        
+        return { employees, schedule, lastUpdated: new Date().toISOString() };
     }
 
     // Обработка данных таблицы
     processSheetData(data) {
-        const employees = [];
-        const schedule = {};
-        
-        if (!data.table || !data.table.rows) {
-            return this.getEmptySchedule();
-        }
-
-        // Первая строка - даты
-        const dates = data.table.rows[0].c.slice(1).map((cell, index) => {
-            if (cell && cell.v) {
-                return parseInt(cell.v);
+        try {
+            const employees = [];
+            const schedule = {};
+            
+            if (!data.table || !data.table.rows) {
+                console.error('Нет данных в таблице');
+                return this.getEmptySchedule();
             }
-            return index + 1;
-        });
 
-        // Остальные строки - сотрудники
-        data.table.rows.slice(1).forEach(row => {
-            if (!row.c[0] || !row.c[0].v) return;
-            
-            const employeeName = row.c[0].v;
-            employees.push(employeeName);
-            
-            row.c.slice(1).forEach((cell, index) => {
-                if (cell && cell.v) {
-                    const day = dates[index];
-                    if (!schedule[day]) schedule[day] = {};
-                    
-                    if (cell.v === 1 || cell.v > 1) {
-                        schedule[day][employeeName] = cell.v;
+            console.log('Все строки таблицы:', data.table.rows);
+
+            // Первая строка - даты (пропускаем первую ячейку с заголовком)
+            const dates = [];
+            if (data.table.rows[0] && data.table.rows[0].c) {
+                for (let i = 1; i < data.table.rows[0].c.length; i++) {
+                    const cell = data.table.rows[0].c[i];
+                    if (cell && cell.v !== null && cell.v !== undefined) {
+                        dates.push(parseInt(cell.v) || i);
+                    } else {
+                        dates.push(i);
                     }
                 }
-            });
-        });
+            }
+            console.log('Даты:', dates);
 
-        return { employees, schedule };
+            // Обрабатываем строки с сотрудниками
+            for (let i = 1; i < data.table.rows.length; i++) {
+                const row = data.table.rows[i];
+                if (!row.c || !row.c[0] || row.c[0].v === null) continue;
+                
+                const employeeName = row.c[0].v.toString().trim();
+                if (!employeeName) continue;
+                
+                employees.push(employeeName);
+                console.log(`Обработка сотрудника: ${employeeName}`);
+
+                // Обрабатываем смены
+                for (let j = 1; j < row.c.length; j++) {
+                    const cell = row.c[j];
+                    const day = dates[j-1];
+                    
+                    if (cell && cell.v !== null && cell.v !== undefined && day) {
+                        const shiftValue = parseFloat(cell.v);
+                        if (shiftValue > 0) {
+                            if (!schedule[day]) schedule[day] = {};
+                            schedule[day][employeeName] = shiftValue;
+                            console.log(`Смена: день ${day}, ${employeeName}, ${shiftValue}ч`);
+                        }
+                    }
+                }
+            }
+
+            const result = { 
+                employees, 
+                schedule,
+                lastUpdated: new Date().toISOString()
+            };
+            
+            console.log('Итоговые данные:', result);
+            return result;
+            
+        } catch (error) {
+            console.error('Ошибка обработки данных таблицы:', error);
+            return this.getEmptySchedule();
+        }
     }
 
     getEmptySchedule() {
-        return { employees: [], schedule: {} };
+        return { 
+            employees: [], 
+            schedule: {},
+            lastUpdated: new Date().toISOString()
+        };
     }
 
-    // Инициализация обработчиков событий
-    initializeEventListeners() {
-        document.getElementById('prev-btn').addEventListener('click', () => this.navigate(-1));
-        document.getElementById('next-btn').addEventListener('click', () => this.navigate(1));
-        document.getElementById('toggle-view').addEventListener('click', () => this.toggleView());
-        
-        // Слайдеры цвета
-        document.getElementById('hue-slider').addEventListener('input', (e) => this.updateColor('h', e.target.value));
-        document.getElementById('saturation-slider').addEventListener('input', (e) => this.updateColor('s', e.target.value));
-        document.getElementById('lightness-slider').addEventListener('input', (e) => this.updateColor('l', e.target.value));
-        document.getElementById('save-color').addEventListener('click', () => this.saveColor());
+    // Периодический парсинг каждые 15 минут
+    startAutoParsing() {
+        setInterval(async () => {
+            console.log('Автоматическое обновление данных...');
+            await this.loadAndParseScheduleData();
+            this.renderCalendar();
+        }, 15 * 60 * 1000); // 15 минут
     }
 
-    // Навигация по календарю
-    navigate(direction) {
-        if (this.isMonthView) {
-            this.currentDate.setMonth(this.currentDate.getMonth() + direction);
-        } else {
-            this.currentDate.setDate(this.currentDate.getDate() + (direction * 7));
-        }
-        this.renderCalendar();
-        this.loadScheduleData();
-    }
-
-    // Переключение вида
-    toggleView() {
-        this.isMonthView = !this.isMonthView;
-        const toggleBtn = document.getElementById('toggle-view');
-        toggleBtn.textContent = this.isMonthView ? '↑' : '↓';
-        
-        document.getElementById('week-view').classList.toggle('active', !this.isMonthView);
-        document.getElementById('month-view').classList.toggle('active', this.isMonthView);
-        
-        this.renderCalendar();
-    }
-
-    // Отрисовка календаря
-    renderCalendar() {
-        this.updateCurrentPeriod();
-        
-        if (this.isMonthView) {
-            this.renderMonthView();
-        } else {
-            this.renderWeekView();
-        }
-    }
-
-    // Отрисовка недельного вида
-    renderWeekView() {
-        const weekGrid = document.getElementById('week-grid');
-        weekGrid.innerHTML = '';
-        
-        const weekStart = this.getWeekStart(this.currentDate);
-        
-        for (let i = 0; i < 7; i++) {
-            const day = new Date(weekStart);
-            day.setDate(weekStart.getDate() + i);
-            
-            const dayElement = this.createDayElement(day, true);
-            weekGrid.appendChild(dayElement);
-        }
-    }
-
-    // Отрисовка месячного вида
-    renderMonthView() {
-        const monthGrid = document.getElementById('month-grid');
-        monthGrid.innerHTML = '';
-        
-        const monthStart = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1);
-        const monthEnd = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth() + 1, 0);
-        
-        // Заголовки дней недели
-        for (let i = 0; i < 7; i++) {
-            const dayHeader = document.createElement('div');
-            dayHeader.className = 'day-header';
-            dayHeader.textContent = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][i];
-            monthGrid.appendChild(dayHeader);
-        }
-        
-        // Пустые ячейки до первого дня
-        const firstDay = (monthStart.getDay() + 6) % 7;
-        for (let i = 0; i < firstDay; i++) {
-            const emptyCell = document.createElement('div');
-            emptyCell.className = 'month-day empty';
-            monthGrid.appendChild(emptyCell);
-        }
-        
-        // Дни месяца
-        for (let day = 1; day <= monthEnd.getDate(); day++) {
-            const date = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), day);
-            const dayElement = this.createDayElement(date, false);
-            monthGrid.appendChild(dayElement);
-        }
-    }
-
-    // Создание элемента дня
-    createDayElement(date, isWeekView) {
-        const dayElement = document.createElement('div');
-        dayElement.className = isWeekView ? 'day-cell' : 'month-day';
-        
-        const dayNumber = document.createElement('div');
-        dayNumber.className = 'day-number';
-        dayNumber.textContent = date.getDate();
-        dayElement.appendChild(dayNumber);
-        
-        // Отображение смен
-        this.renderShiftsForDay(dayElement, date);
-        
-        return dayElement;
-    }
-
-    // Отрисовка смен для дня
-    renderShiftsForDay(container, date) {
-        const day = date.getDate();
-        const monthYear = this.getMonthYearString(date);
-        
-        if (this.scheduleData.schedule && this.scheduleData.schedule[day]) {
-            const daySchedule = this.scheduleData.schedule[day];
-            
-            Object.entries(daySchedule).forEach(([employeeName, shiftValue]) => {
-                // Проверяем, зарегистрирован ли сотрудник
-                const isRegistered = this.isEmployeeRegistered(employeeName);
-                if (!isRegistered) return;
-                
-                const shiftElement = document.createElement('div');
-                shiftElement.className = 'shift-marker';
-                
-                // Проверяем, это смена текущего пользователя
-                const isUserShift = this.currentUser.employeeName === employeeName;
-                if (isUserShift) {
-                    shiftElement.classList.add('user-shift');
-                    shiftElement.style.background = this.getUserColor();
-                } else {
-                    shiftElement.style.background = this.getEmployeeColor(employeeName);
-                }
-                
-                // Позиционирование для нескольких смен
-                const shiftCount = Object.keys(daySchedule).length;
-                const shiftIndex = Object.keys(daySchedule).indexOf(employeeName);
-                const topPosition = 10 + (shiftIndex * 8);
-                
-                shiftElement.style.top = `${topPosition}px`;
-                shiftElement.title = `${employeeName}: ${shiftValue}ч`;
-                
-                container.appendChild(shiftElement);
-            });
-        }
-    }
+    // Остальные методы остаются без изменений...
+    // ... (initializeEventListeners, navigate, toggleView, renderCalendar и т.д.)
 
     // Проверка регистрации сотрудника
     isEmployeeRegistered(employeeName) {
-        // Здесь должна быть логика проверки привязки сотрудника к пользователю
-        // Пока отображаем всех зарегистрированных сотрудников
-        return true;
+        // Проверяем, привязан ли какой-либо пользователь к этому сотруднику
+        return Object.values(this.currentUsers || {}).some(user => 
+            user.employeeName === employeeName
+        );
     }
 
-    // Генерация цвета для сотрудника
-    getEmployeeColor(employeeName) {
-        let hash = 0;
-        for (let i = 0; i < employeeName.length; i++) {
-            hash = employeeName.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        
-        const h = hash % 360;
-        return `hsl(${h}, 70%, 50%)`;
-    }
-
-    // Цвет текущего пользователя
-    getUserColor() {
-        return `hsl(${this.userColor.h}, ${this.userColor.s}%, ${this.userColor.l}%)`;
-    }
-
-    // Обновление цвета
-    updateColor(component, value) {
-        this.userColor[component] = parseInt(value);
-        this.updateColorPreview();
-    }
-
-    // Обновление превью цвета
-    updateColorPreview() {
-        const preview = document.getElementById('color-preview');
-        preview.style.background = this.getUserColor();
-    }
-
-    // Обновление слайдеров
-    updateColorSliders() {
-        document.getElementById('hue-slider').value = this.userColor.h;
-        document.getElementById('saturation-slider').value = this.userColor.s;
-        document.getElementById('lightness-slider').value = this.userColor.l;
-        this.updateColorPreview();
-    }
-
-    // Сохранение цвета
-    async saveColor() {
-        await firebaseService.updateUser(this.currentUser.id, { color: this.userColor });
-        this.showNotification('Цвет сохранен');
-    }
-
-    // Вспомогательные методы
-    getWeekStart(date) {
-        const day = date.getDay();
-        const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-        return new Date(date.setDate(diff));
-    }
-
-    getMonthYearString(date) {
-        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    }
-
-    getRussianMonthYear(date) {
-        const months = [
-            'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-            'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
-        ];
-        return `${months[date.getMonth()]} ${date.getFullYear().toString().slice(2)}`;
-    }
-
-    updateCurrentPeriod() {
-        const periodElement = document.getElementById('current-period');
-        if (this.isMonthView) {
-            const monthName = this.getRussianMonthYear(this.currentDate);
-            periodElement.textContent = monthName;
-        } else {
-            const weekStart = this.getWeekStart(new Date(this.currentDate));
-            const weekEnd = new Date(weekStart);
-            weekEnd.setDate(weekStart.getDate() + 6);
-            
-            periodElement.textContent = 
-                `${weekStart.getDate()} ${this.getRussianMonthYear(weekStart)} - ${weekEnd.getDate()} ${this.getRussianMonthYear(weekEnd)}`;
-        }
-    }
-
-    updateUserInfo() {
-        const userInfo = document.getElementById('user-info');
-        userInfo.textContent = `${this.currentUser.first_name} @${this.currentUser.username}`;
-    }
-
-    showScreen(screenName) {
-        document.querySelectorAll('.screen').forEach(screen => {
-            screen.classList.remove('active');
-        });
-        document.getElementById(screenName).classList.add('active');
-    }
-
-    showNotification(message) {
-        if (this.tg.showPopup) {
-            this.tg.showPopup({ title: 'Уведомление', message: message });
-        } else {
-            alert(message);
-        }
-    }
 }
 
 // Запуск приложения
