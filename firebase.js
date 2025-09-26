@@ -19,7 +19,50 @@ class FirebaseService {
         this.db = database;
     }
 
-    // Сохранение пользователя
+    // === МЕТОДЫ ДЛЯ ЗАРЕГИСТРИРОВАННЫХ СОТРУДНИКОВ ===
+    
+    // Получить всех зарегистрированных сотрудников
+    async getRegisteredEmployees() {
+        try {
+            const snapshot = await get(child(ref(this.db), 'registeredEmployees'));
+            return snapshot.exists() ? snapshot.val() : [];
+        } catch (error) {
+            console.error('Ошибка получения зарегистрированных сотрудников:', error);
+            return [];
+        }
+    }
+
+    // Добавить сотрудника в список зарегистрированных
+    async addRegisteredEmployee(employeeName) {
+        try {
+            const currentEmployees = await this.getRegisteredEmployees();
+            if (!currentEmployees.includes(employeeName)) {
+                const updatedEmployees = [...currentEmployees, employeeName];
+                await set(ref(this.db, 'registeredEmployees'), updatedEmployees);
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Ошибка добавления сотрудника:', error);
+            return false;
+        }
+    }
+
+    // Удалить сотрудника из списка зарегистрированных
+    async removeRegisteredEmployee(employeeName) {
+        try {
+            const currentEmployees = await this.getRegisteredEmployees();
+            const updatedEmployees = currentEmployees.filter(name => name !== employeeName);
+            await set(ref(this.db, 'registeredEmployees'), updatedEmployees);
+            return true;
+        } catch (error) {
+            console.error('Ошибка удаления сотрудника:', error);
+            return false;
+        }
+    }
+
+    // === СТАРЫЕ МЕТОДЫ (упрощаем) ===
+
     async saveUser(userData) {
         try {
             await set(ref(this.db, 'users/' + userData.id), {
@@ -28,7 +71,6 @@ class FirebaseService {
                 firstName: userData.firstName || '',
                 lastName: userData.lastName || '',
                 isAdmin: userData.isAdmin || false,
-                sheetNames: userData.sheetNames || [],
                 color: userData.color || { h: 200, s: 80, l: 60 },
                 createdAt: Date.now()
             });
@@ -39,7 +81,6 @@ class FirebaseService {
         }
     }
 
-    // Получение пользователя
     async getUser(userId) {
         try {
             const snapshot = await get(child(ref(this.db), `users/${userId}`));
@@ -50,7 +91,6 @@ class FirebaseService {
         }
     }
 
-    // Получение всех пользователей
     async getAllUsers() {
         try {
             const snapshot = await get(child(ref(this.db), 'users'));
@@ -61,7 +101,6 @@ class FirebaseService {
         }
     }
 
-    // Обновление пользователя
     async updateUser(userId, updates) {
         try {
             await update(ref(this.db, 'users/' + userId), updates);
@@ -72,7 +111,6 @@ class FirebaseService {
         }
     }
 
-    // Сохранение настроек фильтра пользователя
     async saveFilterSettings(userId, settings) {
         try {
             await set(ref(this.db, `userSettings/${userId}/filter`), settings);
@@ -83,7 +121,6 @@ class FirebaseService {
         }
     }
 
-    // Получение настроек фильтра пользователя
     async getFilterSettings(userId) {
         try {
             const snapshot = await get(child(ref(this.db), `userSettings/${userId}/filter`));
@@ -94,7 +131,6 @@ class FirebaseService {
         }
     }
 
-    // Сохранение глобальных настроек отображения
     async saveGlobalFilterSettings(settings) {
         try {
             await set(ref(this.db, 'globalSettings/filter'), settings);
@@ -105,7 +141,6 @@ class FirebaseService {
         }
     }
 
-    // Получение глобальных настроек отображения
     async getGlobalFilterSettings() {
         try {
             const snapshot = await get(child(ref(this.db), 'globalSettings/filter'));
