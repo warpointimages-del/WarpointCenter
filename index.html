@@ -1,0 +1,89 @@
+const TelegramBot = require('node-telegram-bot-api');
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Конфигурация
+const BOT_TOKEN = '8367657341:AAElP8RNPS-jS5LacQQ2HcpWLpc5jbrpFF0';
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAbLz1MnfjYIQMDkmqgMa09Z3W_j8dnJbM",
+  authDomain: "database-a9dee.firebaseapp.com",
+  databaseURL: "https://database-a9dee-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "database-a9dee",
+  storageBucket: "database-a9dee.firebasestorage.app",
+  messagingSenderId: "68358730239",
+  appId: "1:68358730239:web:21d9e409f80df8e815b7ca"
+};
+
+// Инициализация бота
+const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname)));
+
+// Маршрут для мини-приложения
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// API endpoint для получения данных графика
+app.get('/api/schedule', async (req, res) => {
+  try {
+    const scheduleData = await getScheduleData();
+    res.json(scheduleData);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API endpoint для обновления цвета пользователя
+app.post('/api/update-color', async (req, res) => {
+  try {
+    const { userId, color } = req.body;
+    await updateUserColor(userId, color);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Команда для бота
+bot.onText(/\/start/, (msg) => {
+  const chatId = msg.chat.id;
+  const miniAppUrl = `https://your-domain.com`; // Замените на ваш домен
+  
+  bot.sendMessage(chatId, 'Добро пожаловать в график работы!', {
+    reply_markup: {
+      inline_keyboard: [[
+        {
+          text: '📅 Открыть график',
+          web_app: { url: miniAppUrl }
+        }
+      ]]
+    }
+  });
+});
+
+// Функции для работы с Google Sheets и Firebase
+async function getScheduleData() {
+  // Здесь будет логика парсинга Google Sheets
+  // Пока возвращаем заглушку
+  return {
+    employees: [],
+    schedule: {},
+    lastUpdated: new Date().toISOString()
+  };
+}
+
+async function updateUserColor(userId, color) {
+  // Логика обновления цвета в Firebase
+}
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
