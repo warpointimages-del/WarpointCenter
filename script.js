@@ -7,294 +7,344 @@ class ScheduleApp {
         this.currentUser = null;
         this.currentDate = new Date();
         this.isMonthView = false;
-        this.scheduleData = {};
+        this.scheduleData = { employees: [], schedule: {} };
         this.userColor = { h: 200, s: 80, l: 50 };
         
-        this.init();
+        this.init().catch(console.error);
     }
 
     async init() {
-        try {
-            this.tg.expand();
-            this.tg.enableClosingConfirmation();
-            
-            await this.initializeUser();
-            await this.loadUserPreferences();
-            await this.loadAndParseScheduleData(); // Изменено на новую функцию
-            this.initializeEventListeners();
-            this.renderCalendar();
-            await adminPanel.init(this.currentUser);
-            
-            // Запускаем периодический парсинг
-            this.startAutoParsing();
-            
-            this.showScreen('main');
-        } catch (error) {
-            console.error('Ошибка инициализации:', error);
-        }
+        // Быстрая инициализация UI
+        this.tg.expand();
+        this.showScreen('main');
+        
+        // Параллельная загрузка всего
+        await Promise.all([
+            this.initializeUser(),
+            this.loadCriticalData()
+        ]);
+        
+        this.initializeEventListeners();
+        this.renderCalendar();
+        
+        // Фоновые задачи
+        this.loadNonCriticalData();
     }
 
-    // Инициализация пользователя
     async initializeUser() {
-        const initData = this.tg.initDataUnsafe;
-        const user = initData.user;
-        
-        if (!user) {
-            throw new Error('Пользователь не авторизован');
-        }
+        const user = this.tg.initDataUnsafe?.user;
+        if (!user) return;
 
         this.currentUser = {
             id: user.id,
             first_name: user.first_name,
-            username: user.username
+            username: user.username,
+            isAdmin: user.id === 1999947340
         };
 
-        // Сначала загружаем существующие данные пользователя
-        const existingUser = await firebaseService.getUser(user.id);
-        if (existingUser) {
-            this.currentUser = { ...this.currentUser, ...existingUser };
-        } else {
-            // Сохраняем нового пользователя
-            await firebaseService.saveUser(this.currentUser);
-        }
-
-        // Проверяем админский статус
-        this.currentUser.isAdmin = this.currentUser.isAdmin || user.id === 1999947340;
+        // Быстрое сохранение пользователя
+        setTimeout(() => {
+            firebaseService.saveUser(this.currentUser);
+        }, 0);
 
         this.updateUserInfo();
-        console.log('Текущий пользователь:', this.currentUser);
     }
 
-    // Загрузка и парсинг данных графика
-    async loadAndParseScheduleData() {
-        const currentMonthYear = this.getMonthYearString(this.currentDate);
-        console.log('Загрузка графика для:', currentMonthYear);
+    async loadCriticalData() {
+        // Загружаем только текущий месяц
+        const monthYear = this.getMonthYearString(this.currentDate);
         
-        // Пытаемся загрузить из Firebase
-        let data = await firebaseService.getScheduleData(currentMonthYear);
-        
-        if (!data || this.isDataOld(data)) {
-            console.log('Данные устарели или отсутствуют, парсим таблицу...');
-            data = await this.parseGoogleSheets();
-            if (data && data.employees && data.employees.length > 0) {
-                await firebaseService.saveScheduleData(currentMonthYear, data);
-                console.log('Данные графика сохранены в Firebase');
+        try {
+            const [schedule, userData] = await Promise.all([
+                firebaseService.getScheduleData(monthYear),
+                this.currentUser ? firebaseService.getUser(this.currentUser.id) : Promise.resolve(null)
+            ]);
+            
+            if (schedule) {
+                this.scheduleData = schedule;
             }
+            
+            if (userData && this.currentUser) {
+                this.currentUser = { ...this.currentUser, ...userData };
+                this.userColor = userData.color || this.userColor;
+            }
+        } catch (error) {
+            console.log('Быстрая загрузка данных не удалась, продолжаем без них');
         }
-        
-        this.scheduleData = data || this.getEmptySchedule();
-        console.log('Загруженные данные графика:', this.scheduleData);
     }
 
-    // Проверка устаревания данных (больше 15 минут)
-    isDataOld(data) {
-        if (!data.lastUpdated) return true;
-        const lastUpdate = new Date(data.lastUpdated);
-        const now = new Date();
-        return (now - lastUpdate) > 15 * 60 * 1000; // 15 минут
+    async loadNonCriticalData() {
+        // Фоновая загрузка остальных данных
+        setTimeout(async () => {
+            await this.tryParseGoogleSheets();
+            this.renderCalendar();
+            
+            if (this.currentUser?.isAdmin) {
+                this.loadAdminPanel();
+            }
+        }, 1000);
     }
 
-// Парсинг Google Sheets
-async parseGoogleSheets() {
-    const sheetId = '1leyP2K649JNfC8XvIV3amZPnQz18jFI95JAJoeXcXGk';
-    const sheetName = this.getRussianMonthYear(this.currentDate);
-    
-    console.log('Парсинг таблицы:', sheetName);
-    
-    try {
-        // Прямой запрос к Google Sheets API
-        const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=responseHandler:parseSheet`;
-        
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        
-        const text = await response.text();
-        console.log('Raw response:', text.substring(0, 1000));
-        
-        return this.processSheetResponse(text);
-        
-    } catch (error) {
-        console.error('Ошибка парсинга таблицы:', error);
-        return await this.tryCSVParse(sheetId, sheetName);
+    async tryParseGoogleSheets() {
+        try {
+            const monthYear = this.getMonthYearString(this.currentDate);
+            const sheetName = this.getRussianMonthYear(this.currentDate);
+            
+            // Простой fetch без сложной обработки
+            const response = await fetch(
+                `https://docs.google.com/spreadsheets/d/1leyP2K649JNfC8XvIV3amZPnQz18jFI95JAJoeXcXGk/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=out:csv`
+            );
+            
+            if (response.ok) {
+                const csv = await response.text();
+                const parsed = this.simpleCSVParse(csv);
+                
+                if (parsed.employees.length > 0) {
+                    this.scheduleData = parsed;
+                    await firebaseService.saveScheduleData(monthYear, parsed);
+                }
+            }
+        } catch (error) {
+            // Игнорируем ошибки парсинга
+        }
     }
-}
 
-// Обработка ответа Google Sheets
-processSheetResponse(text) {
-    try {
-        // Извлекаем JSON из ответа
-        const jsonStr = text.match(/google\.visualization\.Query\.setResponse\(({.*})\);/)[1];
-        const data = JSON.parse(jsonStr);
-        
-        console.log('Sheet data structure:', data);
-        
+    simpleCSVParse(csvText) {
         const employees = [];
         const schedule = {};
+        const lines = csvText.split('\n').filter(l => l.trim());
         
-        if (!data.table || !data.table.rows) {
-            console.error('Нет данных в таблице');
-            return this.getEmptySchedule();
-        }
+        if (lines.length < 2) return { employees, schedule };
         
-        // Получаем даты из первой строки (пропускаем первую ячейку)
-        const dates = [];
-        const firstRow = data.table.rows[0];
-        if (firstRow && firstRow.c) {
-            for (let i = 1; i < firstRow.c.length; i++) {
-                const cell = firstRow.c[i];
-                if (cell && cell.v !== null) {
-                    dates.push(parseInt(cell.v) || i);
-                } else {
-                    dates.push(i); // Если ячейка пустая, используем номер столбца
-                }
-            }
-        }
-        console.log('Распознанные даты:', dates);
-        
-        // Обрабатываем сотрудников
-        for (let i = 1; i < data.table.rows.length; i++) {
-            const row = data.table.rows[i];
-            if (!row.c || row.c.length === 0) continue;
+        // Простая обработка CSV
+        for (let i = 1; i < lines.length; i++) {
+            const cells = lines[i].split(',').map(c => c.replace(/"/g, '').trim());
+            const name = cells[0];
             
-            // Первая ячейка - имя сотрудника
-            const nameCell = row.c[0];
-            if (!nameCell || !nameCell.v) continue;
+            if (!name) continue;
             
-            const employeeName = nameCell.v.toString().trim();
-            if (!employeeName) continue;
+            employees.push(name);
             
-            employees.push(employeeName);
-            console.log(`Обработка сотрудника: ${employeeName}`);
-            
-            // Обрабатываем смены
-            for (let j = 1; j < row.c.length; j++) {
-                const dayIndex = j - 1;
-                if (dayIndex >= dates.length) break;
+            for (let j = 1; j < cells.length; j++) {
+                const day = j;
+                const hours = parseFloat(cells[j]) || 0;
                 
-                const day = dates[dayIndex];
-                const cell = row.c[j];
-                
-                if (cell && cell.v !== null && cell.v !== undefined) {
-                    const hours = parseFloat(cell.v);
-                    if (hours > 0) {
-                        if (!schedule[day]) schedule[day] = {};
-                        schedule[day][employeeName] = hours;
-                        console.log(`День ${day}: ${employeeName} - ${hours}ч`);
-                    }
-                }
-            }
-        }
-        
-        const result = {
-            employees: employees,
-            schedule: schedule,
-            lastUpdated: new Date().toISOString()
-        };
-        
-        console.log('Результат парсинга:', result);
-        return result;
-        
-    } catch (error) {
-        console.error('Ошибка обработки данных:', error);
-        return this.getEmptySchedule();
-    }
-}
-
-// Альтернативный парсинг через CSV
-async tryCSVParse(sheetId, sheetName) {
-    try {
-        const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-        const response = await fetch(csvUrl);
-        
-        if (response.ok) {
-            const csvText = await response.text();
-            return this.parseCSVData(csvText);
-        }
-    } catch (error) {
-        console.error('CSV парсинг также не удался:', error);
-    }
-    
-    return this.getEmptySchedule();
-}
-
-// Парсинг CSV данных
-parseCSVData(csvText) {
-    const lines = csvText.split('\n').filter(line => line.trim());
-    if (lines.length < 2) return this.getEmptySchedule();
-    
-    const employees = [];
-    const schedule = {};
-    
-    // Первая строка - даты (пропускаем первую ячейку)
-    const firstLine = lines[0].split(',');
-    const dates = [];
-    
-    for (let i = 1; i < firstLine.length; i++) {
-        const dateStr = firstLine[i].replace(/^"|"$/g, '').trim();
-        const dateMatch = dateStr.match(/(\d+)/);
-        dates.push(dateMatch ? parseInt(dateMatch[1]) : i);
-    }
-    
-    console.log('CSV даты:', dates);
-    
-    // Обрабатываем строки с сотрудниками
-    for (let i = 1; i < lines.length; i++) {
-        const cells = lines[i].split(',').map(cell => 
-            cell.replace(/^"|"$/g, '').trim()
-        );
-        
-        const employeeName = cells[0];
-        if (!employeeName) continue;
-        
-        employees.push(employeeName);
-        console.log(`CSV сотрудник: ${employeeName}`);
-        
-        // Обрабатываем смены
-        for (let j = 1; j < cells.length; j++) {
-            const dayIndex = j - 1;
-            if (dayIndex >= dates.length) break;
-            
-            const day = dates[dayIndex];
-            const cellValue = cells[j];
-            
-            if (cellValue) {
-                const hours = parseFloat(cellValue.replace(',', '.'));
-                if (!isNaN(hours) && hours > 0) {
+                if (hours > 0) {
                     if (!schedule[day]) schedule[day] = {};
-                    schedule[day][employeeName] = hours;
-                    console.log(`CSV день ${day}: ${employeeName} - ${hours}ч`);
+                    schedule[day][name] = hours;
                 }
             }
         }
+        
+        return { employees, schedule };
     }
-    
-    return {
-        employees: employees,
-        schedule: schedule,
-        lastUpdated: new Date().toISOString()
-    };
+
+    initializeEventListeners() {
+        // Делегирование событий для производительности
+        document.addEventListener('click', (e) => {
+            if (e.target.id === 'prev-btn') this.navigate(-1);
+            if (e.target.id === 'next-btn') this.navigate(1);
+            if (e.target.id === 'toggle-view') this.toggleView();
+            if (e.target.id === 'save-color') this.saveColor();
+        });
+        
+        ['hue-slider', 'saturation-slider', 'lightness-slider'].forEach(id => {
+            document.getElementById(id)?.addEventListener('input', (e) => {
+                this.userColor[e.target.id.split('-')[0][0]] = parseInt(e.target.value);
+                this.renderCalendar();
+            });
+        });
+    }
+
+    navigate(direction) {
+        if (this.isMonthView) {
+            this.currentDate.setMonth(this.currentDate.getMonth() + direction);
+        } else {
+            this.currentDate.setDate(this.currentDate.getDate() + (direction * 7));
+        }
+        this.renderCalendar();
+    }
+
+    toggleView() {
+        this.isMonthView = !this.isMonthView;
+        document.getElementById('toggle-view').textContent = this.isMonthView ? '↑' : '↓';
+        document.getElementById('week-view').classList.toggle('active', !this.isMonthView);
+        document.getElementById('month-view').classList.toggle('active', this.isMonthView);
+        this.renderCalendar();
+    }
+
+    renderCalendar() {
+        this.updateCurrentPeriod();
+        
+        if (this.isMonthView) {
+            this.renderMonthView();
+        } else {
+            this.renderWeekView();
+        }
+    }
+
+    renderWeekView() {
+        const grid = document.getElementById('week-grid');
+        if (!grid) return;
+        
+        const weekStart = this.getWeekStart(this.currentDate);
+        let html = '';
+        
+        for (let i = 0; i < 7; i++) {
+            const day = new Date(weekStart);
+            day.setDate(weekStart.getDate() + i);
+            html += this.createDayHTML(day, true);
+        }
+        
+        grid.innerHTML = html;
+    }
+
+    renderMonthView() {
+        const grid = document.getElementById('month-grid');
+        if (!grid) return;
+        
+        const monthStart = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1);
+        const monthEnd = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth() + 1, 0);
+        const firstDay = (monthStart.getDay() + 6) % 7;
+        
+        let html = '';
+        
+        // Заголовки
+        for (let i = 0; i < 7; i++) {
+            html += `<div class="day-header">${['Пн','Вт','Ср','Чт','Пт','Сб','Вс'][i]}</div>`;
+        }
+        
+        // Пустые ячейки
+        for (let i = 0; i < firstDay; i++) {
+            html += '<div class="month-day empty"></div>';
+        }
+        
+        // Дни месяца
+        for (let day = 1; day <= monthEnd.getDate(); day++) {
+            const date = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), day);
+            html += this.createDayHTML(date, false);
+        }
+        
+        grid.innerHTML = html;
+    }
+
+    createDayHTML(date, isWeekView) {
+        const day = date.getDate();
+        const shifts = this.scheduleData.schedule[day] || {};
+        const className = isWeekView ? 'day-cell' : 'month-day';
+        const employeeName = this.currentUser?.employeeName;
+        
+        let shiftsHTML = '';
+        let shiftIndex = 0;
+        
+        Object.entries(shifts).forEach(([name, hours]) => {
+            const isUser = name === employeeName;
+            const color = isUser ? this.getUserColor() : this.getEmployeeColor(name);
+            const top = 10 + (shiftIndex * 6);
+            
+            shiftsHTML += `
+                <div class="shift-marker ${isUser ? 'user-shift' : ''}" 
+                     style="background:${color};top:${top}px"
+                     title="${name}: ${hours}ч">
+                </div>
+            `;
+            shiftIndex++;
+        });
+        
+        return `
+            <div class="${className}">
+                <div class="day-number">${day}</div>
+                ${shiftsHTML}
+            </div>
+        `;
+    }
+
+    getEmployeeColor(name) {
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) {
+            hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return `hsl(${hash % 360}, 70%, 50%)`;
+    }
+
+    getUserColor() {
+        return `hsl(${this.userColor.h}, ${this.userColor.s}%, ${this.userColor.l}%)`;
+    }
+
+    updateCurrentPeriod() {
+        const element = document.getElementById('current-period');
+        if (!element) return;
+        
+        if (this.isMonthView) {
+            element.textContent = this.getRussianMonthYear(this.currentDate);
+        } else {
+            const weekStart = this.getWeekStart(new Date(this.currentDate));
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
+            
+            element.textContent = 
+                `${weekStart.getDate()} ${this.getRussianMonthYear(weekStart)} - ${weekEnd.getDate()} ${this.getRussianMonthYear(weekEnd)}`;
+        }
+    }
+
+    updateUserInfo() {
+        const element = document.getElementById('user-info');
+        if (element && this.currentUser) {
+            element.textContent = `${this.currentUser.first_name} @${this.currentUser.username}`;
+        }
+    }
+
+    async saveColor() {
+        if (this.currentUser) {
+            await firebaseService.updateUser(this.currentUser.id, { color: this.userColor });
+            this.tg.showPopup({ title: 'Успех', message: 'Цвет сохранен' });
+        }
+    }
+
+    async loadAdminPanel() {
+        const panel = document.getElementById('admin-panel');
+        if (panel) panel.classList.remove('hidden');
+        
+        // Простая админка
+        setTimeout(async () => {
+            const users = await firebaseService.getAllUsers();
+            const list = document.getElementById('users-list');
+            if (list) {
+                list.innerHTML = Object.entries(users).map(([id, user]) => `
+                    <div class="user-item">
+                        <strong>${user.first_name}</strong> @${user.username}
+                    </div>
+                `).join('');
+            }
+        }, 2000);
+    }
+
+    // Вспомогательные методы
+    getWeekStart(date) {
+        const day = date.getDay();
+        const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+        return new Date(date.setDate(diff));
+    }
+
+    getMonthYearString(date) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    getRussianMonthYear(date) {
+        const months = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+        return `${months[date.getMonth()]} ${date.getFullYear().toString().slice(2)}`;
+    }
+
+    showScreen(screenName) {
+        document.querySelectorAll('.screen').forEach(screen => {
+            screen.classList.toggle('active', screen.id === screenName);
+        });
+    }
 }
-    // Периодический парсинг каждые 15 минут
-    startAutoParsing() {
-        setInterval(async () => {
-            console.log('Автоматическое обновление данных...');
-            await this.loadAndParseScheduleData();
-            this.renderCalendar();
-        }, 15 * 60 * 1000); // 15 минут
-    }
 
-    // Остальные методы остаются без изменений...
-    // ... (initializeEventListeners, navigate, toggleView, renderCalendar и т.д.)
-
-    // Проверка регистрации сотрудника
-    isEmployeeRegistered(employeeName) {
-        // Проверяем, привязан ли какой-либо пользователь к этому сотруднику
-        return Object.values(this.currentUsers || {}).some(user => 
-            user.employeeName === employeeName
-        );
-    }
-
+// Запуск приложения когда всё готово
+if (window.Telegram?.WebApp) {
+    new ScheduleApp();
+} else {
+    window.addEventListener('DOMContentLoaded', () => new ScheduleApp());
 }
-
-// Запуск приложения
-new ScheduleApp();
