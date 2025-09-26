@@ -89,13 +89,9 @@ class AdminPanel {
         const updatedNames = [...currentNames, name];
         await firebaseService.updateUser(userId, { sheetNames: updatedNames });
         
-        // Обновляем данные пользователя
         this.users[userId].sheetNames = updatedNames;
-        
-        // Очищаем поле ввода
         input.value = '';
         
-        // Перерисовываем список
         this.renderUsersList();
         this.updateRegisteredEmployees();
     }
@@ -105,11 +101,8 @@ class AdminPanel {
         const updatedNames = user.sheetNames.filter(name => name !== nameToRemove);
         
         await firebaseService.updateUser(userId, { sheetNames: updatedNames });
-        
-        // Обновляем данные пользователя
         this.users[userId].sheetNames = updatedNames;
         
-        // Перерисовываем список
         this.renderUsersList();
         this.updateRegisteredEmployees();
     }
@@ -119,7 +112,6 @@ class AdminPanel {
         this.users[userId].isAdmin = isAdmin;
     }
 
-    // Новый метод для обновления списка зарегистрированных сотрудников
     updateRegisteredEmployees() {
         const allEmployees = new Set();
         
@@ -131,12 +123,12 @@ class AdminPanel {
         
         window.registeredEmployees = Array.from(allEmployees);
         
-        // Обновляем отображение графика, если приложение уже запущено
+        // Автоматически обновляем отображение графика
         if (window.scheduleApp) {
+            window.scheduleApp.updateRegisteredEmployeesList();
             window.scheduleApp.render();
         }
     }
 }
 
-// Глобальная переменная для доступа из HTML
 window.adminPanel = new AdminPanel();
