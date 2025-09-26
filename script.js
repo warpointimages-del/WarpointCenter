@@ -76,22 +76,50 @@ class ScheduleApp {
 
     async loadAvailableMonths() {
         try {
+            console.log('Загрузка списка листов из Google Sheets...');
             const response = await fetch(
                 `https://docs.google.com/spreadsheets/d/1leyP2K649JNfC8XvIV3amZPnQz18jFI95JAJoeXcXGk/gviz/tq`
             );
             
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
             const text = await response.text();
-            const json = JSON.parse(text.substring(47, text.length - 2));
+            console.log('Полученный ответ:', text.substring(0, 200) + '...');
+            
+            // ИСПРАВЛЕНИЕ: Более надежный парсинг JSON
+            const jsonStart = text.indexOf('{');
+            const jsonEnd = text.lastIndexOf('}') + 1;
+            
+            if (jsonStart === -1 || jsonEnd === -1) {
+                throw new Error('Invalid JSON response');
+            }
+            
+            const jsonText = text.substring(jsonStart, jsonEnd);
+            const json = JSON.parse(jsonText);
+            
+            console.log('Полный JSON ответ:', json);
             
             if (json && json.sheets) {
                 this.availableMonths = json.sheets.map(sheet => sheet.name).filter(name => {
                     const monthPattern = /^(Январь|Февраль|Март|Апрель|Май|Июнь|Июль|Август|Сентябрь|Октябрь|Ноябрь|Декабрь)\s\d{2}$/;
-                    return monthPattern.test(name);
+                    const isValid = monthPattern.test(name);
+                    if (isValid) {
+                        console.log('Найден подходящий лист:', name);
+                    }
+                    return isValid;
                 });
                 console.log('Доступные месяцы:', this.availableMonths);
+            } else {
+                console.warn('Нет данных о листах в ответе');
+                this.availableMonths = ['Сентябрь 25']; // Fallback на известный лист
             }
         } catch (error) {
             console.error('Ошибка загрузки списка месяцев:', error);
+            // Fallback: используем известные листы
+            this.availableMonths = ['Сентябрь 25'];
+            console.log('Используем fallback листы:', this.availableMonths);
         }
     }
 
@@ -101,23 +129,19 @@ class ScheduleApp {
             console.log('Текущий месяц для поиска:', currentMonthSheet);
             console.log('Доступные листы:', this.availableMonths);
             
-            // ИСПРАВЛЕНИЕ: Нормализуем сравнение строк - убираем лишние пробелы
+            // Если нет доступных листов, пробуем загрузить текущий
+            if (this.availableMonths.length === 0) {
+                console.log('Нет доступных листов, пробуем загрузить текущий напрямую');
+                await this.loadSpecificMonthData(currentMonthSheet);
+                return;
+            }
+            
             const normalizedAvailableMonths = this.availableMonths.map(month => month.trim());
             const normalizedCurrentMonth = currentMonthSheet.trim();
             
-            console.log('Нормализованный поиск:', normalizedCurrentMonth);
-            console.log('Нормализованные доступные:', normalizedAvailableMonths);
-            
             if (!normalizedAvailableMonths.includes(normalizedCurrentMonth)) {
-                console.warn(`Лист "${currentMonthSheet}" не найден. Доступные листы:`, this.availableMonths);
-                const nearestMonth = this.findNearestMonth();
-                console.log('Ближайший найденный месяц:', nearestMonth);
-                
-                if (nearestMonth) {
-                    await this.loadSpecificMonthData(nearestMonth);
-                } else {
-                    console.error('Не найден подходящий лист для загрузки');
-                }
+                console.warn(`Лист "${currentMonthSheet}" не найден. Пробуем первый доступный лист`);
+                await this.loadSpecificMonthData(this.availableMonths[0]);
                 return;
             }
             
@@ -130,79 +154,53 @@ class ScheduleApp {
     async loadSpecificMonthData(sheetName) {
         try {
             console.log(`Загрузка данных для листа: "${sheetName}"`);
-            const response = await fetch(
-                `https://docs.google.com/spreadsheets/d/1leyP2K649JNfC8XvIV3amZPnQz18jFI95JAJoeXcXGk/gviz/tq?sheet=${encodeURIComponent(sheetName)}`
-            );
+            const url = `https://docs.google.com/spreadsheets/d/1leyP2K649JNfC8XvIV3amZPnQz18jFI95JAJoeXcXGk/gviz/tq?sheet=${encodeURIComponent(sheetName)}`;
+            console.log('URL запроса:', url);
+            
+            const response = await fetch(url);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
             const text = await response.text();
-            const json = JSON.parse(text.substring(47, text.length - 2));
+            console.log('Полученные данные (первые 500 символов):', text.substring(0, 500));
+            
+            // ИСПРАВЛЕНИЕ: Более надежный парсинг
+            const jsonStart = text.indexOf('{');
+            const jsonEnd = text.lastIndexOf('}') + 1;
+            
+            if (jsonStart === -1 || jsonEnd === -1) {
+                throw new Error('Invalid JSON response from sheet data');
+            }
+            
+            const jsonText = text.substring(jsonStart, jsonEnd);
+            const json = JSON.parse(jsonText);
             
             this.processScheduleData(json, sheetName);
         } catch (error) {
             console.error(`Ошибка загрузки данных для листа "${sheetName}":`, error);
+            // Показываем сообщение об ошибке
+            document.getElementById('loading').textContent = `Ошибка загрузки данных: ${error.message}`;
         }
     }
 
     findNearestMonth() {
+        if (this.availableMonths.length === 0) {
+            return null;
+        }
+        
         const currentMonth = this.getCurrentMonthSheetName().trim();
         console.log('Поиск ближайшего месяца к:', currentMonth);
         
-        // ИСПРАВЛЕНИЕ: Нормализуем сравнение
-        const normalizedAvailable = this.availableMonths.map(month => month.trim());
-        const normalizedCurrent = currentMonth.trim();
-        
-        const currentIndex = normalizedAvailable.indexOf(normalizedCurrent);
-        if (currentIndex !== -1) {
-            console.log('Точное совпадение найдено:', this.availableMonths[currentIndex]);
-            return this.availableMonths[currentIndex];
-        }
-        
-        // Если точного совпадения нет, ищем ближайший по дате
-        const monthsOrder = {
-            'Январь': 1, 'Февраль': 2, 'Март': 3, 'Апрель': 4, 'Май': 5, 'Июнь': 6,
-            'Июль': 7, 'Август': 8, 'Сентябрь': 9, 'Октябрь': 10, 'Ноябрь': 11, 'Декабрь': 12
-        };
-        
-        const [currentMonthName, currentYear] = normalizedCurrent.split(' ');
-        const currentMonthNum = monthsOrder[currentMonthName];
-        const currentYearNum = parseInt(currentYear);
-        
-        let bestMatch = null;
-        let smallestDiff = Infinity;
-        
-        for (const availableMonth of this.availableMonths) {
-            const [availMonthName, availYear] = availableMonth.trim().split(' ');
-            const availMonthNum = monthsOrder[availMonthName];
-            const availYearNum = parseInt(availYear);
-            
-            // Вычисляем разницу в месяцах
-            const yearDiff = (availYearNum - currentYearNum) * 12;
-            const monthDiff = availMonthNum - currentMonthNum;
-            const totalDiff = yearDiff + monthDiff;
-            
-            // Ищем ближайший будущий месяц
-            if (totalDiff >= 0 && totalDiff < smallestDiff) {
-                smallestDiff = totalDiff;
-                bestMatch = availableMonth;
-            }
-        }
-        
-        // Если не нашли будущий, берем последний доступный
-        if (!bestMatch && this.availableMonths.length > 0) {
-            bestMatch = this.availableMonths[this.availableMonths.length - 1];
-        }
-        
-        console.log('Лучшее совпадение:', bestMatch);
-        return bestMatch;
+        // Просто возвращаем первый доступный лист
+        return this.availableMonths[0];
     }
 
     processScheduleData(data, sheetName) {
         if (!data.table || !data.table.rows) {
-            console.warn('Нет данных в таблице');
+            console.warn('Нет данных в таблице для листа:', sheetName);
+            console.log('Структура данных:', data);
             return;
         }
         
@@ -252,6 +250,12 @@ class ScheduleApp {
         }
         
         console.log('Итоговые данные графика:', this.scheduleData);
+        
+        // Если данные загружены успешно, скрываем сообщение о загрузке
+        if (Object.keys(this.scheduleData).length > 0) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+        }
     }
 
     getCurrentMonthSheetName() {
@@ -390,7 +394,7 @@ class ScheduleApp {
         
         if (!monthNavigation || !monthSelect) return;
         
-        if (this.isMonthView) {
+        if (this.isMonthView && this.availableMonths.length > 0) {
             monthNavigation.classList.remove('hidden');
             
             monthSelect.innerHTML = '';
@@ -398,7 +402,6 @@ class ScheduleApp {
                 const option = document.createElement('option');
                 option.value = month;
                 option.textContent = month;
-                // ИСПРАВЛЕНИЕ: Нормализуем сравнение для выбора
                 const currentNormalized = this.getCurrentMonthSheetName().trim();
                 const monthNormalized = month.trim();
                 option.selected = monthNormalized === currentNormalized;
