@@ -8,7 +8,7 @@ class ScheduleApp {
         this.scheduleData = {};
         this.user = null;
         this.filterSettings = { showOnlyMine: false };
-        this.globalFilterSettings = { showOnlyRegistered: true }; // Новая настройка
+        this.globalFilterSettings = { showOnlyRegistered: true };
         this.availableMonths = [];
         this.usersData = {};
         
@@ -17,22 +17,28 @@ class ScheduleApp {
 
     async init() {
         try {
+            console.log('=== ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ ===');
             this.tg.expand();
             this.tg.enableClosingConfirmation();
             
             await this.initializeUser();
             await this.loadAllUsersData();
             await this.loadFilterSettings();
-            await this.loadGlobalFilterSettings(); // Загружаем глобальные настройки
+            await this.loadGlobalFilterSettings();
             await this.loadAvailableMonths();
             await this.loadScheduleData();
             this.initializeEventListeners();
             this.render();
             
+            if (this.user && this.user.isAdmin) {
+                this.initializeAdminControls();
+            }
+            
             document.getElementById('loading').classList.add('hidden');
             document.getElementById('main-content').classList.remove('hidden');
         } catch (error) {
             console.error('Ошибка инициализации:', error);
+            document.getElementById('loading').textContent = 'Ошибка загрузки: ' + error.message;
         }
     }
 
@@ -58,7 +64,8 @@ class ScheduleApp {
             this.user = existingUser;
             
             if (this.user.isAdmin) {
-    document.getElementById('admin-panel').classList.remove('hidden');
+                document.getElementById('admin-panel').classList.remove('hidden');
+            }
             
             if (this.user.sheetNames && this.user.sheetNames.length > 0) {
                 document.getElementById('color-picker').classList.remove('hidden');
@@ -67,7 +74,6 @@ class ScheduleApp {
         }
     }
 
-    // Новый метод для инициализации админских контролов
     initializeAdminControls() {
         const globalFilterContainer = document.createElement('div');
         globalFilterContainer.className = 'global-filter';
@@ -90,17 +96,16 @@ class ScheduleApp {
         this.globalFilterSettings.showOnlyRegistered = showOnlyRegistered;
         await firebaseService.saveGlobalFilterSettings(this.globalFilterSettings);
         this.render();
-        if (this.user && this.user.isAdmin) {
-    this.initializeAdminControls();
-}
     }
 
     async loadGlobalFilterSettings() {
         this.globalFilterSettings = await firebaseService.getGlobalFilterSettings();
+        console.log('Глобальные настройки фильтра:', this.globalFilterSettings);
     }
 
     async loadAllUsersData() {
         this.usersData = await firebaseService.getAllUsers();
+        console.log('Загружены данные пользователей:', this.usersData);
         this.updateRegisteredEmployeesList();
     }
 
@@ -108,12 +113,13 @@ class ScheduleApp {
         const allEmployees = new Set();
         
         Object.values(this.usersData).forEach(user => {
-            if (user.sheetNames) {
-                user.sheetNames.forEach(name => allEmployees.add(name));
+            if (user.sheetNames && Array.isArray(user.sheetNames)) {
+                user.sheetNames.forEach(name => allEmployees.add(name.trim()));
             }
         });
         
         window.registeredEmployees = Array.from(allEmployees);
+        console.log('Список зарегистрированных сотрудников:', window.registeredEmployees);
     }
 
     async loadAvailableMonths() {
@@ -226,7 +232,7 @@ class ScheduleApp {
             this.scheduleData[employeeName] = shifts;
         }
         
-        this.registeredUsers = new Set(Object.keys(this.scheduleData));
+        console.log('Данные графика загружены:', this.scheduleData);
     }
 
     getCurrentMonthSheetName() {
@@ -246,7 +252,11 @@ class ScheduleApp {
         document.getElementById('next-week').addEventListener('click', () => this.changeWeek(1));
         document.getElementById('toggle-view').addEventListener('click', () => this.toggleView());
         document.getElementById('show-only-mine').addEventListener('change', (e) => this.toggleFilter(e.target.checked));
-        document.getElementById('month-select').addEventListener('change', (e) => this.changeMonth(e.target.value));
+        
+        const monthSelect = document.getElementById('month-select');
+        if (monthSelect) {
+            monthSelect.addEventListener('change', (e) => this.changeMonth(e.target.value));
+        }
     }
 
     initializeColorPicker() {
@@ -263,7 +273,6 @@ class ScheduleApp {
             const l = document.getElementById('lightness-slider').value;
             
             this.user.color = { h: parseInt(h), s: parseInt(s), l: parseInt(l) };
-            // Сохраняем цвет в базу данных
             firebaseService.updateUser(this.user.id, { color: this.user.color });
             this.render();
         };
@@ -311,14 +320,24 @@ class ScheduleApp {
     }
 
     render() {
+        console.log('=== RENDER START ===');
+        console.log('Global filter:', this.globalFilterSettings.showOnlyRegistered);
+        console.log('My filter:', this.filterSettings.showOnlyMine);
+        console.log('User sheetNames:', this.user?.sheetNames);
+        
         this.updateNavigation();
         this.renderMonthNavigation();
+        
+        const employeesToShow = this.getFilteredEmployees();
+        console.log('Сотрудники для отображения:', employeesToShow);
         
         if (this.isMonthView) {
             this.renderMonthView();
         } else {
             this.renderWeekView();
         }
+        
+        console.log('=== RENDER END ===');
     }
 
     updateNavigation() {
@@ -347,6 +366,8 @@ class ScheduleApp {
     renderMonthNavigation() {
         const monthNavigation = document.getElementById('month-navigation');
         const monthSelect = document.getElementById('month-select');
+        
+        if (!monthNavigation || !monthSelect) return;
         
         if (this.isMonthView) {
             monthNavigation.classList.remove('hidden');
@@ -474,61 +495,62 @@ class ScheduleApp {
         `;
     }
 
-getFilteredEmployees() {
-    const allEmployees = Object.keys(this.scheduleData);
-    console.log('Все сотрудники из таблицы:', allEmployees);
-    
-    // ПРИМЕНЯЕМ ГЛОБАЛЬНУЮ ФИЛЬТРАЦИЮ - только зарегистрированные
-    if (this.globalFilterSettings.showOnlyRegistered) {
-        const registeredEmployees = this.getRegisteredEmployeesFromUsers();
-        console.log('Зарегистрированные сотрудники:', registeredEmployees);
+    getFilteredEmployees() {
+        const allEmployees = Object.keys(this.scheduleData);
+        console.log('Все сотрудники из таблицы:', allEmployees);
         
-        // Фильтруем: оставляем только тех, кто есть в registeredEmployees
-        const filteredByRegistration = allEmployees.filter(employee => 
-            registeredEmployees.includes(employee.trim())
-        );
+        // ПРИМЕНЯЕМ ГЛОБАЛЬНУЮ ФИЛЬТРАЦИЮ - только зарегистрированные
+        if (this.globalFilterSettings.showOnlyRegistered) {
+            const registeredEmployees = this.getRegisteredEmployeesFromUsers();
+            console.log('Зарегистрированные сотрудники:', registeredEmployees);
+            
+            // Фильтруем: оставляем только тех, кто есть в registeredEmployees
+            const filteredByRegistration = allEmployees.filter(employee => 
+                registeredEmployees.includes(employee.trim())
+            );
+            
+            console.log('После глобальной фильтрации:', filteredByRegistration);
+            
+            // Если включена фильтрация "только мои смены" - применяем дополнительную фильтрацию
+            if (this.filterSettings.showOnlyMine && this.user && this.user.sheetNames) {
+                const finalFiltered = filteredByRegistration.filter(employee => 
+                    this.user.sheetNames.includes(employee.trim())
+                );
+                console.log('После моих смен:', finalFiltered);
+                return finalFiltered;
+            }
+            
+            return filteredByRegistration;
+        }
         
-        console.log('После глобальной фильтрации:', filteredByRegistration);
-        
-        // Если включена фильтрация "только мои смены" - применяем дополнительную фильтрацию
+        // Если глобальная фильтрация выключена - показываем всех
+        console.log('Глобальная фильтрация выключена, показываем всех');
         if (this.filterSettings.showOnlyMine && this.user && this.user.sheetNames) {
-            const finalFiltered = filteredByRegistration.filter(employee => 
+            const mineOnly = allEmployees.filter(employee => 
                 this.user.sheetNames.includes(employee.trim())
             );
-            console.log('После моих смен:', finalFiltered);
-            return finalFiltered;
+            console.log('Только мои смены:', mineOnly);
+            return mineOnly;
         }
         
-        return filteredByRegistration;
+        return allEmployees;
     }
-    
-    // Если глобальная фильтрация выключена - показываем всех
-    console.log('Глобальная фильтрация выключена, показываем всех');
-    if (this.filterSettings.showOnlyMine && this.user && this.user.sheetNames) {
-        const mineOnly = allEmployees.filter(employee => 
-            this.user.sheetNames.includes(employee.trim())
-        );
-        console.log('Только мои смены:', mineOnly);
-        return mineOnly;
-    }
-    
-    return allEmployees;
-}
 
-getRegisteredEmployeesFromUsers() {
-    // Должны возвращаться ВСЕ имена, привязанные ко ВСЕМ пользователям
-    const allEmployees = new Set();
-    
-    Object.values(this.usersData).forEach(user => {
-        if (user.sheetNames && Array.isArray(user.sheetNames)) {
-            user.sheetNames.forEach(name => allEmployees.add(name.trim()));
-        }
-    });
-    
-    console.log('Зарегистрированные сотрудники:', Array.from(allEmployees));
-    return Array.from(allEmployees);
-}
-    // ОБНОВЛЕННЫЙ МЕТОД - цвет берется из базы данных пользователя
+    getRegisteredEmployeesFromUsers() {
+        // Должны возвращаться ВСЕ имена, привязанные ко ВСЕМ пользователям
+        const allEmployees = new Set();
+        
+        Object.values(this.usersData).forEach(user => {
+            if (user.sheetNames && Array.isArray(user.sheetNames)) {
+                user.sheetNames.forEach(name => allEmployees.add(name.trim()));
+            }
+        });
+        
+        const result = Array.from(allEmployees);
+        console.log('Зарегистрированные сотрудники из БД:', result);
+        return result;
+    }
+
     getEmployeeColor(employeeName) {
         // Ищем пользователя, у которого привязано это имя сотрудника
         const userWithThisName = Object.values(this.usersData).find(user => 
@@ -536,15 +558,12 @@ getRegisteredEmployeesFromUsers() {
         );
         
         if (userWithThisName && userWithThisName.color) {
-            // Возвращаем цвет из базы данных пользователя
             return userWithThisName.color;
         }
         
-        // Если пользователь не найден, генерируем случайный цвет на основе имени
         return this.generateColorFromName(employeeName);
     }
 
-    // Генерация случайного цвета для нового пользователя
     generateRandomColor() {
         return {
             h: Math.floor(Math.random() * 360),
@@ -553,7 +572,6 @@ getRegisteredEmployeesFromUsers() {
         };
     }
 
-    // Генерация цвета на основе имени (для непривязанных сотрудников)
     generateColorFromName(name) {
         const hash = name.split('').reduce((a, b) => {
             a = ((a << 5) - a) + b.charCodeAt(0);
@@ -587,7 +605,6 @@ getRegisteredEmployeesFromUsers() {
     }
 }
 
-// Сохраняем экземпляр приложения в глобальной переменной
 document.addEventListener('DOMContentLoaded', () => {
     window.scheduleApp = new ScheduleApp();
 });
