@@ -474,35 +474,46 @@ class ScheduleApp {
         `;
     }
 
-    getFilteredEmployees() {
-        const allEmployees = Object.keys(this.scheduleData);
+getFilteredEmployees() {
+    const allEmployees = Object.keys(this.scheduleData);
+    console.log('Все сотрудники из таблицы:', allEmployees);
+    
+    // ПРИМЕНЯЕМ ГЛОБАЛЬНУЮ ФИЛЬТРАЦИЮ - только зарегистрированные
+    if (this.globalFilterSettings.showOnlyRegistered) {
+        const registeredEmployees = this.getRegisteredEmployeesFromUsers();
+        console.log('Зарегистрированные сотрудники:', registeredEmployees);
         
-        // ПРИМЕНЯЕМ ГЛОБАЛЬНУЮ ФИЛЬТРАЦИЮ - только зарегистрированные
-        if (this.globalFilterSettings.showOnlyRegistered) {
-            const registeredEmployees = this.getRegisteredEmployeesFromUsers();
-            const filteredByRegistration = allEmployees.filter(employee => 
-                registeredEmployees.includes(employee)
-            );
-            
-            // Если включена фильтрация "только мои смены" - применяем дополнительную фильтрацию
-            if (this.filterSettings.showOnlyMine && this.user && this.user.sheetNames) {
-                return filteredByRegistration.filter(employee => 
-                    this.user.sheetNames.includes(employee)
-                );
-            }
-            
-            return filteredByRegistration;
-        }
+        // Фильтруем: оставляем только тех, кто есть в registeredEmployees
+        const filteredByRegistration = allEmployees.filter(employee => 
+            registeredEmployees.includes(employee.trim())
+        );
         
-        // Если глобальная фильтрация выключена - показываем всех
+        console.log('После глобальной фильтрации:', filteredByRegistration);
+        
+        // Если включена фильтрация "только мои смены" - применяем дополнительную фильтрацию
         if (this.filterSettings.showOnlyMine && this.user && this.user.sheetNames) {
-            return allEmployees.filter(employee => 
-                this.user.sheetNames.includes(employee)
+            const finalFiltered = filteredByRegistration.filter(employee => 
+                this.user.sheetNames.includes(employee.trim())
             );
+            console.log('После моих смен:', finalFiltered);
+            return finalFiltered;
         }
         
-        return allEmployees;
+        return filteredByRegistration;
     }
+    
+    // Если глобальная фильтрация выключена - показываем всех
+    console.log('Глобальная фильтрация выключена, показываем всех');
+    if (this.filterSettings.showOnlyMine && this.user && this.user.sheetNames) {
+        const mineOnly = allEmployees.filter(employee => 
+            this.user.sheetNames.includes(employee.trim())
+        );
+        console.log('Только мои смены:', mineOnly);
+        return mineOnly;
+    }
+    
+    return allEmployees;
+}
 
 getRegisteredEmployeesFromUsers() {
     // Должны возвращаться ВСЕ имена, привязанные ко ВСЕМ пользователям
