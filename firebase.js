@@ -61,21 +61,31 @@ class FirebaseService {
         }
     }
 
-    // Сохранение данных графика
-    async saveScheduleData(monthYear, scheduleData) {
-        try {
-            console.log('Сохранение графика для:', monthYear);
-            await set(ref(this.db, `schedule/${monthYear}`), {
-                data: scheduleData,
-                lastUpdated: new Date().toISOString()
-            });
-            console.log('График успешно сохранен');
-            return true;
-        } catch (error) {
-            console.error('Ошибка сохранения графика:', error);
+// Сохранение данных графика
+async saveScheduleData(monthYear, scheduleData) {
+    try {
+        console.log('Сохранение графика для:', monthYear, scheduleData);
+        
+        // Проверяем, есть ли вообще данные для сохранения
+        if (!scheduleData || !scheduleData.employees || scheduleData.employees.length === 0) {
+            console.log('Нет данных для сохранения');
             return false;
         }
+        
+        const scheduleRef = ref(this.db, `schedule/${monthYear}`);
+        await set(scheduleRef, {
+            data: scheduleData,
+            lastUpdated: new Date().toISOString()
+        });
+        
+        console.log('График успешно сохранен в Firebase');
+        return true;
+        
+    } catch (error) {
+        console.error('Ошибка сохранения графика:', error);
+        return false;
     }
+}
 
     // Получение данных графика
     async getScheduleData(monthYear) {
