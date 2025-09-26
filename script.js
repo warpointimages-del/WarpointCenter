@@ -380,12 +380,14 @@ class ScheduleApp {
 
     findDateRow(data) {
         // Ищем строку, которая содержит числа (даты) в ячейках
-        for (let i = 0; i < Math.min(5, data.length); i++) { // Проверяем первые 5 строк
+        // Теперь проверяем первые 10 строк вместо 5
+        for (let i = 0; i < Math.min(10, data.length); i++) {
             const row = data[i];
             if (!row || row.length < 2) continue;
             
             let dateCount = 0;
-            for (let j = 1; j < Math.min(10, row.length); j++) { // Проверяем первые 10 ячеек
+            // Проверяем больше ячеек для надежности
+            for (let j = 1; j < Math.min(15, row.length); j++) {
                 if (this.extractDateNumber(row[j]) !== null) {
                     dateCount++;
                 }
@@ -393,10 +395,44 @@ class ScheduleApp {
             
             // Если найдено несколько чисел, считаем это строкой с датами
             if (dateCount >= 3) {
+                console.log(`Найдена строка с датами: строка ${i}, найдено ${dateCount} дат`);
                 return i;
             }
         }
         
+        // Если не нашли строку с достаточным количеством дат, 
+        // пробуем найти строку с хотя бы 2 датами
+        for (let i = 0; i < Math.min(10, data.length); i++) {
+            const row = data[i];
+            if (!row || row.length < 2) continue;
+            
+            let dateCount = 0;
+            for (let j = 1; j < Math.min(15, row.length); j++) {
+                if (this.extractDateNumber(row[j]) !== null) {
+                    dateCount++;
+                }
+            }
+            
+            if (dateCount >= 2) {
+                console.log(`Найдена строка с датами (минимум 2): строка ${i}, найдено ${dateCount} дат`);
+                return i;
+            }
+        }
+        
+        // Если все еще не нашли, пробуем первую строку с хотя бы 1 датой
+        for (let i = 0; i < Math.min(10, data.length); i++) {
+            const row = data[i];
+            if (!row || row.length < 2) continue;
+            
+            for (let j = 1; j < Math.min(15, row.length); j++) {
+                if (this.extractDateNumber(row[j]) !== null) {
+                    console.log(`Найдена строка с датами (хотя бы 1): строка ${i}`);
+                    return i;
+                }
+            }
+        }
+        
+        console.log('Не найдено строк с датами, используем первую строку');
         return 0; // По умолчанию используем первую строку
     }
 
