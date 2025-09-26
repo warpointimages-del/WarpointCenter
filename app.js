@@ -9,31 +9,35 @@ const firebaseConfig = {
     appId: "1:68358730239:web:21d9e409f80df8e815b7ca"
 };
 
-// Инициализация Firebase
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js';
-import { getDatabase, ref, set, get, child } from 'https://www.gstatic.com/firebasejs/10.5.0/firebase-database.js';
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
 class ScheduleApp {
     constructor() {
-        this.tg = Telegram.WebApp;
+        this.tg = window.Telegram?.WebApp;
         this.currentDate = new Date();
         this.isMonthView = false;
         this.userData = null;
         this.scheduleData = null;
         this.userColor = { h: 200, s: 80, l: 50 };
+        this.isInitialized = false;
         
         this.init();
     }
 
     async init() {
         try {
-            this.tg.expand();
-            this.tg.enableClosingConfirmation();
+            if (this.tg) {
+                this.tg.expand();
+                this.tg.enableClosingConfirmation();
+                await this.authenticateUser();
+            } else {
+                // Режим разработки без Telegram
+                this.userData = {
+                    tgId: 'dev_' + Date.now(),
+                    username: 'developer',
+                    firstName: 'Developer',
+                    lastName: 'Mode'
+                };
+            }
             
-            await this.authenticateUser();
             await this.loadUserData();
             await this.loadScheduleData();
             this.setupEventListeners();
@@ -42,15 +46,20 @@ class ScheduleApp {
             document.getElementById('loading').classList.add('hidden');
             document.getElementById('main-content').classList.remove('hidden');
             document.getElementById('user-panel').classList.remove('hidden');
+            
+            this.isInitialized = true;
         } catch (error) {
             console.error('Initialization error:', error);
+            this.showError('Ошибка загрузки приложения');
         }
     }
 
     async authenticateUser() {
-        const user = this.tg.initDataUnsafe.user;
-        if (!user) throw new Error('User not found');
+        if (!this.tg?.initDataUnsafe?.user) {
+            throw new Error('User not found in Telegram context');
+        }
         
+        const user = this.tg.initDataUnsafe.user;
         this.userData = {
             tgId: user.id,
             username: user.username || `user_${user.id}`,
@@ -58,53 +67,55 @@ class ScheduleApp {
             lastName: user.last_name || ''
         };
         
-        // Сохраняем/обновляем пользователя в Firebase
-        await set(ref(db, `users/${user.id}`), {
-            ...this.userData,
-            lastLogin: new Date().toISOString()
-        });
+        // Сохраняем пользователя в localStorage для демо
+        this.saveToLocalStorage('userData', this.userData);
     }
 
     async loadUserData() {
-        const userRef = ref(db, `users/${this.userData.tgId}`);
-        const snapshot = await get(userRef);
-        
-        if (snapshot.exists()) {
-            const data = snapshot.val();
-            if (data.color) {
-                this.userColor = data.color;
-                this.updateColorSliders();
+        try {
+            const savedData = this.loadFromLocalStorage('userData');
+            if (savedData && savedData.tgId === this.userData.tgId) {
+                if (savedData.color) {
+                    this.userColor = savedData.color;
+                }
+                if (savedData.employeeId) {
+                    this.userData.employeeId = savedData.employeeId;
+                }
             }
-            
-            if (data.employeeId) {
-                this.userData.employeeId = data.employeeId;
-            }
+            this.updateColorSliders();
+        } catch (error) {
+            console.error('Error loading user data:', error);
         }
     }
 
     async loadScheduleData() {
         try {
-            // Здесь будет логика парсинга Google Sheets
-            // Пока используем заглушку
-            this.scheduleData = await this.fetchScheduleData();
+            const response = await fetch('/api/schedule');
+            if (!response.ok) throw new Error('Network error');
+            this.scheduleData = await response.json();
         } catch (error) {
             console.error('Error loading schedule:', error);
+            // Используем тестовые данные при ошибке
+            this.scheduleData = this.getMockScheduleData();
         }
     }
 
-    async fetchScheduleData() {
-        // Заглушка - в реальности здесь будет парсинг Google Sheets
+    getMockScheduleData() {
         return {
             employees: [
-                { id: 1, name: 'Иван Иванов', color: '#ff6b6b' },
-                { id: 2, name: 'Петр Петров', color: '#4ecdc4' },
-                { id: 3, name: 'Мария Сидорова', color: '#45b7d1' }
+                { id: 1, name: 'Иван Иванов', color: 'hsl(0, 70%, 50%)' },
+                { id: 2, name: 'Петр Петров', color: 'hsl(120, 70%, 50%)' },
+                { id: 3, name: 'Мария Сидорова', color: 'hsl(240, 70%, 50%)' },
+                { id: 4, name: 'Анна Козлова', color: 'hsl(60, 70%, 50%)' },
+                { id: 5, name: 'Сергей Смирнов', color: 'hsl(300, 70%, 50%)' }
             ],
             schedule: {
                 '2024-01': {
-                    '1': { '1': 1, '5': 1, '10': 8 },
-                    '2': { '2': 1, '6': 1, '15': 1 },
-                    '3': { '3': 1, '7': 1, '20': 6 }
+                    1: { 1: 1, 5: 1, 10: 8, 15: 1, 20: 1, 25: 6 },
+                    2: { 2: 1, 6: 1, 11: 1, 16: 8, 21: 1, 26: 1 },
+                    3: { 3: 1, 7: 1, 12: 6, 17: 1, 22: 1, 27: 8 },
+                    4: { 4: 1, 8: 8, 13: 1, 18: 1, 23: 6, 28: 1 },
+                    5: { 5: 1, 9: 1, 14: 1, 19: 8, 24: 1, 29: 1 }
                 }
             },
             lastUpdated: new Date().toISOString()
@@ -121,11 +132,17 @@ class ScheduleApp {
         document.getElementById('saturation-slider').addEventListener('input', (e) => this.updateColor('s', e.target.value));
         document.getElementById('lightness-slider').addEventListener('input', (e) => this.updateColor('l', e.target.value));
         document.getElementById('save-color').addEventListener('click', () => this.saveColor());
+        
+        // Выбор сотрудника
+        document.getElementById('employee-select').addEventListener('change', (e) => this.selectEmployee(e.target.value));
     }
 
     updateColor(component, value) {
         this.userColor[component] = parseInt(value);
         this.updateColorDisplay();
+        if (this.isInitialized) {
+            this.renderCalendar();
+        }
     }
 
     updateColorSliders() {
@@ -145,11 +162,19 @@ class ScheduleApp {
 
     async saveColor() {
         try {
-            await set(ref(db, `users/${this.userData.tgId}/color`), this.userColor);
-            this.showNotification('Цвет сохранен');
+            this.userData.color = this.userColor;
+            this.saveToLocalStorage('userData', this.userData);
+            this.showNotification('Цвет сохранен ✅');
         } catch (error) {
             console.error('Error saving color:', error);
+            this.showNotification('Ошибка сохранения ❌');
         }
+    }
+
+    selectEmployee(employeeId) {
+        this.userData.employeeId = employeeId ? parseInt(employeeId) : null;
+        this.saveToLocalStorage('userData', this.userData);
+        this.renderCalendar();
     }
 
     navigate(direction) {
@@ -179,40 +204,52 @@ class ScheduleApp {
             this.renderWeekView();
         }
         this.updatePeriodDisplay();
+        this.updateEmployeeSelect();
     }
 
     renderWeekView() {
         const weekView = document.getElementById('week-view');
-        const weekStart = this.getWeekStart(this.currentDate);
+        const weekStart = this.getWeekStart(new Date(this.currentDate));
         
         let html = '<div class="week-grid">';
         
         // Заголовок с днями недели
-        html += '<div class="week-header"></div>';
+        html += '<div class="week-header">Сотрудник</div>';
         for (let i = 0; i < 7; i++) {
             const date = new Date(weekStart);
             date.setDate(weekStart.getDate() + i);
-            html += `<div class="week-header">${this.formatDate(date, 'short')}</div>`;
+            const isToday = this.isToday(date);
+            const todayClass = isToday ? ' today' : '';
+            html += `<div class="week-header${todayClass}">${this.formatDate(date, 'week-header')}</div>`;
         }
         
         // Строки с сотрудниками
         if (this.scheduleData && this.scheduleData.employees) {
             this.scheduleData.employees.forEach(employee => {
-                html += `<div class="week-header">${employee.name}</div>`;
+                const isUser = this.userData.employeeId === employee.id;
+                const userClass = isUser ? ' user-employee' : '';
+                
+                html += `<div class="employee-name${userClass}">${employee.name}</div>`;
                 for (let i = 0; i < 7; i++) {
                     const date = new Date(weekStart);
                     date.setDate(weekStart.getDate() + i);
-                    html += `<div class="day-cell">`;
+                    const isToday = this.isToday(date);
+                    const todayClass = isToday ? ' today' : '';
+                    
+                    html += `<div class="day-cell${todayClass}">`;
                     html += `<div class="date-number">${date.getDate()}</div>`;
                     
-                    // Здесь будет логика отображения смен
                     if (this.hasShift(employee.id, date)) {
-                        const isUserShift = this.userData.employeeId === employee.id;
+                        const isUserShift = isUser;
                         const color = isUserShift ? 
                             `hsl(${this.userColor.h}, ${this.userColor.s}%, ${this.userColor.l}%)` : 
                             employee.color;
                         
-                        html += `<div class="shift-strip" style="background: ${color}; width: 90%;"></div>`;
+                        const shiftValue = this.getShiftValue(employee.id, date);
+                        const shiftClass = shiftValue > 1 ? ' long-shift' : '';
+                        const title = shiftValue > 1 ? `${shiftValue} часов` : 'Смена';
+                        
+                        html += `<div class="shift-strip${shiftClass}" style="background: ${color};" title="${employee.name}: ${title}"></div>`;
                     }
                     
                     html += `</div>`;
@@ -230,13 +267,14 @@ class ScheduleApp {
         const month = this.currentDate.getMonth();
         const firstDay = new Date(year, month, 1);
         const lastDay = new Date(year, month + 1, 0);
+        const daysInMonth = lastDay.getDate();
         
         let html = '<div class="month-grid">';
         
         // Заголовки дней недели
         const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
         days.forEach(day => {
-            html += `<div class="week-header">${day}</div>`;
+            html += `<div class="month-header">${day}</div>`;
         });
         
         // Пустые ячейки перед первым днем
@@ -246,21 +284,29 @@ class ScheduleApp {
         }
         
         // Дни месяца
-        for (let day = 1; day <= lastDay.getDate(); day++) {
+        for (let day = 1; day <= daysInMonth; day++) {
             const date = new Date(year, month, day);
-            html += `<div class="month-day">`;
+            const isToday = this.isToday(date);
+            const todayClass = isToday ? ' today' : '';
+            
+            html += `<div class="month-day${todayClass}">`;
             html += `<div class="date-number">${day}</div>`;
             
             // Смены на этот день
             if (this.scheduleData && this.scheduleData.employees) {
                 this.scheduleData.employees.forEach(employee => {
                     if (this.hasShift(employee.id, date)) {
-                        const isUserShift = this.userData.employeeId === employee.id;
+                        const isUser = this.userData.employeeId === employee.id;
+                        const isUserShift = isUser;
                         const color = isUserShift ? 
                             `hsl(${this.userColor.h}, ${this.userColor.s}%, ${this.userColor.l}%)` : 
                             employee.color;
                         
-                        html += `<div class="shift-strip" style="background: ${color}; width: 100%;"></div>`;
+                        const shiftValue = this.getShiftValue(employee.id, date);
+                        const shiftClass = shiftValue > 1 ? ' long-shift' : '';
+                        const title = `${employee.name}: ${shiftValue > 1 ? shiftValue + ' часов' : 'Смена'}`;
+                        
+                        html += `<div class="shift-strip${shiftClass}" style="background: ${color};" title="${title}"></div>`;
                     }
                 });
             }
@@ -273,11 +319,24 @@ class ScheduleApp {
     }
 
     hasShift(employeeId, date) {
-        // Заглушка - здесь будет реальная проверка смен
         const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
         const day = date.getDate();
         
         return this.scheduleData?.schedule?.[monthKey]?.[employeeId]?.[day];
+    }
+
+    getShiftValue(employeeId, date) {
+        const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+        const day = date.getDate();
+        
+        return this.scheduleData?.schedule?.[monthKey]?.[employeeId]?.[day] || 0;
+    }
+
+    isToday(date) {
+        const today = new Date();
+        return date.getDate() === today.getDate() &&
+               date.getMonth() === today.getMonth() &&
+               date.getFullYear() === today.getFullYear();
     }
 
     getWeekStart(date) {
@@ -287,10 +346,16 @@ class ScheduleApp {
     }
 
     formatDate(date, format = 'full') {
+        if (format === 'week-header') {
+            const options = { weekday: 'short', day: 'numeric' };
+            return date.toLocaleDateString('ru-RU', options);
+        }
+        
         const options = {
-            weekday: format === 'short' ? 'short' : 'long',
-            day: 'numeric',
-            month: format === 'short' ? 'short' : 'long'
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
         };
         return date.toLocaleDateString('ru-RU', options);
     }
@@ -305,26 +370,44 @@ class ScheduleApp {
             const weekEnd = new Date(weekStart);
             weekEnd.setDate(weekStart.getDate() + 6);
             
-            const startStr = this.formatDate(weekStart, 'short');
-            const endStr = this.formatDate(weekEnd, 'short');
+            const startStr = weekStart.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+            const endStr = weekEnd.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
             periodElement.textContent = `${startStr} - ${endStr}`;
         }
     }
 
+    updateEmployeeSelect() {
+        const select = document.getElementById('employee-select');
+        if (!this.scheduleData?.employees) return;
+        
+        select.innerHTML = '<option value="">-- Выберите себя --</option>';
+        this.scheduleData.employees.forEach(employee => {
+            const selected = this.userData.employeeId === employee.id ? 'selected' : '';
+            select.innerHTML += `<option value="${employee.id}" ${selected}>${employee.name}</option>`;
+        });
+    }
+
+    saveToLocalStorage(key, data) {
+        try {
+            localStorage.setItem(key, JSON.stringify(data));
+        } catch (error) {
+            console.error('Error saving to localStorage:', error);
+        }
+    }
+
+    loadFromLocalStorage(key) {
+        try {
+            const data = localStorage.getItem(key);
+            return data ? JSON.parse(data) : null;
+        } catch (error) {
+            console.error('Error loading from localStorage:', error);
+            return null;
+        }
+    }
+
     showNotification(message) {
-        // Простая реализация уведомления
         const notification = document.createElement('div');
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #2563eb;
-            color: white;
-            padding: 12px 20px;
-            border-radius: 0;
-            z-index: 1000;
-            font-size: 14px;
-        `;
+        notification.className = 'notification';
         notification.textContent = message;
         document.body.appendChild(notification);
         
@@ -332,9 +415,16 @@ class ScheduleApp {
             notification.remove();
         }, 3000);
     }
+
+    showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = message;
+        document.body.appendChild(errorDiv);
+    }
 }
 
-// Запуск приложения
+// Запуск приложения когда DOM загружен
 document.addEventListener('DOMContentLoaded', () => {
     new ScheduleApp();
 });
