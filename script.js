@@ -17,6 +17,7 @@ class ScheduleApp {
 
     async init() {
         try {
+            console.log('=== ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ ===');
             this.tg.expand();
             this.tg.enableClosingConfirmation();
             
@@ -73,54 +74,6 @@ class ScheduleApp {
         console.log('Зарегистрированные сотрудники:', this.registeredEmployees);
     }
 
-    initializeAdminControls() {
-        const globalFilterContainer = document.createElement('div');
-        globalFilterContainer.className = 'global-filter';
-        globalFilterContainer.innerHTML = `
-            <label class="checkbox-container">
-                <input type="checkbox" id="show-only-registered" ${this.globalFilterSettings.showOnlyRegistered ? 'checked' : ''}>
-                <span class="checkmark"></span>
-                Показывать только зарегистрированных сотрудников
-            </label>
-        `;
-        
-        document.getElementById('filters-panel').prepend(globalFilterContainer);
-        
-        document.getElementById('show-only-registered').addEventListener('change', (e) => {
-            this.toggleGlobalFilter(e.target.checked);
-        });
-    }
-
-    async toggleGlobalFilter(showOnlyRegistered) {
-        this.globalFilterSettings.showOnlyRegistered = showOnlyRegistered;
-        await firebaseService.saveGlobalFilterSettings(this.globalFilterSettings);
-        this.render();
-    }
-
-    async loadGlobalFilterSettings() {
-        this.globalFilterSettings = await firebaseService.getGlobalFilterSettings();
-        console.log('Глобальные настройки фильтра:', this.globalFilterSettings);
-    }
-
-    async loadAllUsersData() {
-        this.usersData = await firebaseService.getAllUsers();
-        console.log('Загружены данные пользователей:', this.usersData);
-        this.updateRegisteredEmployeesList();
-    }
-
-    updateRegisteredEmployeesList() {
-        const allEmployees = new Set();
-        
-        Object.values(this.usersData).forEach(user => {
-            if (user.sheetNames && Array.isArray(user.sheetNames)) {
-                user.sheetNames.forEach(name => allEmployees.add(name.trim()));
-            }
-        });
-        
-        window.registeredEmployees = Array.from(allEmployees);
-        console.log('Список зарегистрированных сотрудников:', window.registeredEmployees);
-    }
-
     async loadAvailableMonths() {
         try {
             const response = await fetch(
@@ -135,6 +88,7 @@ class ScheduleApp {
                     const monthPattern = /^(Январь|Февраль|Март|Апрель|Май|Июнь|Июль|Август|Сентябрь|Октябрь|Ноябрь|Декабрь)\s\d{2}$/;
                     return monthPattern.test(name);
                 });
+                console.log('Доступные месяцы:', this.availableMonths);
             }
         } catch (error) {
             console.error('Ошибка загрузки списка месяцев:', error);
@@ -162,6 +116,7 @@ class ScheduleApp {
 
     async loadSpecificMonthData(sheetName) {
         try {
+            console.log(`Загрузка данных для листа: ${sheetName}`);
             const response = await fetch(
                 `https://docs.google.com/spreadsheets/d/1leyP2K649JNfC8XvIV3amZPnQz18jFI95JAJoeXcXGk/gviz/tq?sheet=${encodeURIComponent(sheetName)}`
             );
@@ -191,11 +146,15 @@ class ScheduleApp {
     }
 
     processScheduleData(data, sheetName) {
-        if (!data.table || !data.table.rows) return;
+        if (!data.table || !data.table.rows) {
+            console.warn('Нет данных в таблице');
+            return;
+        }
         
         const rows = data.table.rows;
         const dates = [];
         
+        // Получаем даты из первой строки
         if (rows[0] && rows[0].c) {
             for (let i = 1; i < rows[0].c.length; i++) {
                 const dateCell = rows[0].c[i];
@@ -205,20 +164,23 @@ class ScheduleApp {
             }
         }
         
+        console.log('Даты в таблице:', dates);
+        
         this.scheduleData = {};
         
+        // Обрабатываем строки с сотрудниками
         for (let i = 1; i < rows.length; i++) {
             const row = rows[i];
             if (!row.c || !row.c[0] || !row.c[0].v) continue;
             
-            const employeeName = row.c[0].v.trim();
+            const employeeName = row.c[0].v.toString().trim();
             
             const shifts = [];
             for (let j = 1; j < row.c.length; j++) {
                 const shiftCell = row.c[j];
-                if (shiftCell && shiftCell.v) {
+                if (shiftCell && shiftCell.v !== null) {
                     const shiftValue = parseFloat(shiftCell.v);
-                    if (shiftValue >= 1) {
+                    if (!isNaN(shiftValue) && shiftValue >= 1) {
                         shifts.push({
                             date: dates[j-1],
                             hours: shiftValue,
@@ -228,10 +190,13 @@ class ScheduleApp {
                 }
             }
             
-            this.scheduleData[employeeName] = shifts;
+            if (shifts.length > 0) {
+                this.scheduleData[employeeName] = shifts;
+                console.log(`Сотрудник: ${employeeName}, смен: ${shifts.length}`);
+            }
         }
         
-        console.log('Данные графика загружены:', this.scheduleData);
+        console.log('Итоговые данные графика:', this.scheduleData);
     }
 
     getCurrentMonthSheetName() {
@@ -258,27 +223,28 @@ class ScheduleApp {
         }
     }
 
-    initializeColorPicker() {
-        if (!this.user || !this.user.color) return;
+    initializeAdminControls() {
+        const globalFilterContainer = document.createElement('div');
+        globalFilterContainer.className = 'global-filter';
+        globalFilterContainer.innerHTML = `
+            <label class="checkbox-container">
+                <input type="checkbox" id="show-only-registered" ${this.globalFilterSettings.showOnlyRegistered ? 'checked' : ''}>
+                <span class="checkmark"></span>
+                Показывать только зарегистрированных сотрудников
+            </label>
+        `;
         
-        const { h, s, l } = this.user.color;
-        document.getElementById('hue-slider').value = h;
-        document.getElementById('saturation-slider').value = s;
-        document.getElementById('lightness-slider').value = l;
+        document.getElementById('filters-panel').prepend(globalFilterContainer);
         
-        const updateColor = () => {
-            const h = document.getElementById('hue-slider').value;
-            const s = document.getElementById('saturation-slider').value;
-            const l = document.getElementById('lightness-slider').value;
-            
-            this.user.color = { h: parseInt(h), s: parseInt(s), l: parseInt(l) };
-            firebaseService.updateUser(this.user.id, { color: this.user.color });
-            this.render();
-        };
-        
-        document.getElementById('hue-slider').addEventListener('input', updateColor);
-        document.getElementById('saturation-slider').addEventListener('input', updateColor);
-        document.getElementById('lightness-slider').addEventListener('input', updateColor);
+        document.getElementById('show-only-registered').addEventListener('change', (e) => {
+            this.toggleGlobalFilter(e.target.checked);
+        });
+    }
+
+    async toggleGlobalFilter(showOnlyRegistered) {
+        this.globalFilterSettings.showOnlyRegistered = showOnlyRegistered;
+        await firebaseService.saveGlobalFilterSettings(this.globalFilterSettings);
+        this.render();
     }
 
     changeWeek(direction) {
@@ -320,9 +286,10 @@ class ScheduleApp {
 
     render() {
         console.log('=== RENDER START ===');
-        console.log('Global filter:', this.globalFilterSettings.showOnlyRegistered);
-        console.log('My filter:', this.filterSettings.showOnlyMine);
-        console.log('User sheetNames:', this.user?.sheetNames);
+        console.log('Глобальная фильтрация:', this.globalFilterSettings.showOnlyRegistered);
+        console.log('Моя фильтрация:', this.filterSettings.showOnlyMine);
+        console.log('Зарегистрированные сотрудники:', this.registeredEmployees);
+        console.log('Данные графика:', this.scheduleData);
         
         this.updateNavigation();
         this.renderMonthNavigation();
@@ -331,9 +298,9 @@ class ScheduleApp {
         console.log('Сотрудники для отображения:', employeesToShow);
         
         if (this.isMonthView) {
-            this.renderMonthView();
+            this.renderMonthView(employeesToShow);
         } else {
-            this.renderWeekView();
+            this.renderWeekView(employeesToShow);
         }
         
         console.log('=== RENDER END ===');
@@ -384,7 +351,7 @@ class ScheduleApp {
         }
     }
 
-    renderWeekView() {
+    renderWeekView(employeesToShow) {
         const weekView = document.getElementById('week-view');
         const monthView = document.getElementById('month-view');
         
@@ -396,6 +363,7 @@ class ScheduleApp {
         
         let html = '<div class="calendar-grid">';
         
+        // Заголовки дней недели
         html += '<div class="week-header"></div>';
         for (let i = 0; i < 7; i++) {
             const day = new Date(weekStart);
@@ -403,8 +371,7 @@ class ScheduleApp {
             html += `<div class="week-header">${this.getDayName(day)}<br>${day.getDate()}</div>`;
         }
         
-        const employeesToShow = this.getFilteredEmployees();
-        
+        // Строки сотрудников
         employeesToShow.forEach(employee => {
             html += `<div class="week-time-cell">${employee}</div>`;
             
@@ -419,7 +386,7 @@ class ScheduleApp {
                 shifts.forEach(shift => {
                     if (shift.date === dayNumber) {
                         const color = this.getEmployeeColor(employee);
-                        html += this.renderShift(shift, color, employee);
+                        html += this.renderShift(shift, color);
                     }
                 });
                 
@@ -431,7 +398,7 @@ class ScheduleApp {
         weekView.innerHTML = html;
     }
 
-    renderMonthView() {
+    renderMonthView(employeesToShow) {
         const weekView = document.getElementById('week-view');
         const monthView = document.getElementById('month-view');
         
@@ -443,11 +410,13 @@ class ScheduleApp {
         
         let html = '<div class="calendar-grid">';
         
+        // Заголовки дней недели
         const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
         dayNames.forEach(day => {
             html += `<div class="month-header">${day}</div>`;
         });
         
+        // Пустые ячейки перед первым днем месяца
         const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
         for (let i = 0; i < startDay; i++) {
             const prevMonthDay = new Date(firstDay);
@@ -455,9 +424,8 @@ class ScheduleApp {
             html += `<div class="month-day other-month">${prevMonthDay.getDate()}</div>`;
         }
         
+        // Дни месяца
         const today = new Date();
-        const employeesToShow = this.getFilteredEmployees();
-        
         for (let day = 1; day <= lastDay.getDate(); day++) {
             const isToday = today.getDate() === day && 
                            today.getMonth() === this.currentDate.getMonth() && 
@@ -471,7 +439,7 @@ class ScheduleApp {
                 shifts.forEach(shift => {
                     if (shift.date === day) {
                         const color = this.getEmployeeColor(employee);
-                        html += this.renderShift(shift, color, employee);
+                        html += this.renderShift(shift, color);
                     }
                 });
             });
@@ -483,7 +451,7 @@ class ScheduleApp {
         monthView.innerHTML = html;
     }
 
-    renderShift(shift, color, employee) {
+    renderShift(shift, color) {
         const hsl = `hsl(${color.h}, ${color.s}%, ${color.l}%)`;
         return `
             <div class="shift-parallelogram" style="background-color: ${hsl}">
@@ -498,58 +466,24 @@ class ScheduleApp {
         const allEmployees = Object.keys(this.scheduleData);
         console.log('Все сотрудники из таблицы:', allEmployees);
         
-        // ПРОСТАЯ ГЛОБАЛЬНАЯ ФИЛЬТРАЦИЯ
+        // ПРОСТАЯ И ПОНЯТНАЯ ФИЛЬТРАЦИЯ
         if (this.globalFilterSettings.showOnlyRegistered) {
+            // Фильтруем: оставляем только зарегистрированных сотрудников
             const filtered = allEmployees.filter(employee => 
                 this.registeredEmployees.includes(employee)
             );
-            console.log('После фильтрации:', filtered);
+            console.log('После глобальной фильтрации:', filtered);
             return filtered;
         }
         
         // Если глобальная фильтрация выключена - показываем всех
-        console.log('Показываем всех сотрудников');
+        console.log('Глобальная фильтрация выключена, показываем всех сотрудников');
         return allEmployees;
-    }
-        
-        // Если глобальная фильтрация выключена - показываем всех
-        console.log('Глобальная фильтрация выключена, показываем всех');
-        if (this.filterSettings.showOnlyMine && this.user && this.user.sheetNames) {
-            const mineOnly = allEmployees.filter(employee => 
-                this.user.sheetNames.includes(employee.trim())
-            );
-            console.log('Только мои смены:', mineOnly);
-            return mineOnly;
-        }
-        
-        return allEmployees;
-    }
-
-    getRegisteredEmployeesFromUsers() {
-        // Должны возвращаться ВСЕ имена, привязанные ко ВСЕМ пользователям
-        const allEmployees = new Set();
-        
-        Object.values(this.usersData).forEach(user => {
-            if (user.sheetNames && Array.isArray(user.sheetNames)) {
-                user.sheetNames.forEach(name => allEmployees.add(name.trim()));
-            }
-        });
-        
-        const result = Array.from(allEmployees);
-        console.log('Зарегистрированные сотрудники из БД:', result);
-        return result;
     }
 
     getEmployeeColor(employeeName) {
-        // Ищем пользователя, у которого привязано это имя сотрудника
-        const userWithThisName = Object.values(this.usersData).find(user => 
-            user.sheetNames && user.sheetNames.includes(employeeName)
-        );
-        
-        if (userWithThisName && userWithThisName.color) {
-            return userWithThisName.color;
-        }
-        
+        // Пока используем простую цветовую схему
+        // В будущем можно добавить привязку цветов к сотрудникам
         return this.generateColorFromName(employeeName);
     }
 
@@ -589,8 +523,16 @@ class ScheduleApp {
     async loadFilterSettings() {
         if (this.user) {
             this.filterSettings = await firebaseService.getFilterSettings(this.user.id);
-            document.getElementById('show-only-mine').checked = this.filterSettings.showOnlyMine;
+            const checkbox = document.getElementById('show-only-mine');
+            if (checkbox) {
+                checkbox.checked = this.filterSettings.showOnlyMine;
+            }
         }
+    }
+
+    async loadGlobalFilterSettings() {
+        this.globalFilterSettings = await firebaseService.getGlobalFilterSettings();
+        console.log('Глобальные настройки фильтра:', this.globalFilterSettings);
     }
 }
 
