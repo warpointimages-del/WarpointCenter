@@ -8,9 +8,9 @@ class ScheduleApp {
         this.scheduleData = {};
         this.user = null;
         this.filterSettings = { showOnlyMine: false };
-        this.registeredUsers = new Set();
+        this.globalFilterSettings = { showOnlyRegistered: true }; // Новая настройка
         this.availableMonths = [];
-        this.usersData = {}; // Храним данные всех пользователей для цветов
+        this.usersData = {};
         
         this.init();
     }
@@ -21,8 +21,9 @@ class ScheduleApp {
             this.tg.enableClosingConfirmation();
             
             await this.initializeUser();
-            await this.loadAllUsersData(); // Загружаем данные всех пользователей для цветов
+            await this.loadAllUsersData();
             await this.loadFilterSettings();
+            await this.loadGlobalFilterSettings(); // Загружаем глобальные настройки
             await this.loadAvailableMonths();
             await this.loadScheduleData();
             this.initializeEventListeners();
@@ -40,8 +41,8 @@ class ScheduleApp {
         const userData = {
             id: initData.user?.id,
             username: initData.user?.username,
-            first_name: initData.user?.first_name,
-            last_name: initData.user?.last_name,
+            firstName: initData.user?.first_name,
+            lastName: initData.user?.last_name,
             isAdmin: initData.user?.id === 1999947340
         };
 
@@ -49,7 +50,6 @@ class ScheduleApp {
             let existingUser = await firebaseService.getUser(userData.id);
             
             if (!existingUser) {
-                // Устанавливаем случайный цвет для нового пользователя
                 userData.color = this.generateRandomColor();
                 await firebaseService.saveUser(userData);
                 existingUser = await firebaseService.getUser(userData.id);
@@ -57,12 +57,11 @@ class ScheduleApp {
             
             this.user = existingUser;
             
-            // Показываем админскую панель для админов
             if (this.user.isAdmin) {
                 document.getElementById('admin-panel').classList.remove('hidden');
+                this.initializeAdminControls(); // Инициализируем админские контролы
             }
             
-            // Показываем выбор цвета для зарегистрированных пользователей
             if (this.user.sheetNames && this.user.sheetNames.length > 0) {
                 document.getElementById('color-picker').classList.remove('hidden');
                 this.initializeColorPicker();
@@ -70,9 +69,50 @@ class ScheduleApp {
         }
     }
 
-    // Новый метод для загрузки данных всех пользователей (для цветов)
+    // Новый метод для инициализации админских контролов
+    initializeAdminControls() {
+        const globalFilterContainer = document.createElement('div');
+        globalFilterContainer.className = 'global-filter';
+        globalFilterContainer.innerHTML = `
+            <label class="checkbox-container">
+                <input type="checkbox" id="show-only-registered" ${this.globalFilterSettings.showOnlyRegistered ? 'checked' : ''}>
+                <span class="checkmark"></span>
+                Показывать только зарегистрированных сотрудников
+            </label>
+        `;
+        
+        document.getElementById('filters-panel').prepend(globalFilterContainer);
+        
+        document.getElementById('show-only-registered').addEventListener('change', (e) => {
+            this.toggleGlobalFilter(e.target.checked);
+        });
+    }
+
+    async toggleGlobalFilter(showOnlyRegistered) {
+        this.globalFilterSettings.showOnlyRegistered = showOnlyRegistered;
+        await firebaseService.saveGlobalFilterSettings(this.globalFilterSettings);
+        this.render();
+    }
+
+    async loadGlobalFilterSettings() {
+        this.globalFilterSettings = await firebaseService.getGlobalFilterSettings();
+    }
+
     async loadAllUsersData() {
         this.usersData = await firebaseService.getAllUsers();
+        this.updateRegisteredEmployeesList();
+    }
+
+    updateRegisteredEmployeesList() {
+        const allEmployees = new Set();
+        
+        Object.values(this.usersData).forEach(user => {
+            if (user.sheetNames) {
+                user.sheetNames.forEach(name => allEmployees.add(name));
+            }
+        });
+        
+        window.registeredEmployees = Array.from(allEmployees);
     }
 
     async loadAvailableMonths() {
@@ -436,22 +476,36 @@ class ScheduleApp {
     getFilteredEmployees() {
         const allEmployees = Object.keys(this.scheduleData);
         
+        // ПРИМЕНЯЕМ ГЛОБАЛЬНУЮ ФИЛЬТРАЦИЮ - только зарегистрированные
+        if (this.globalFilterSettings.showOnlyRegistered) {
+            const registeredEmployees = this.getRegisteredEmployeesFromUsers();
+            const filteredByRegistration = allEmployees.filter(employee => 
+                registeredEmployees.includes(employee)
+            );
+            
+            // Если включена фильтрация "только мои смены" - применяем дополнительную фильтрацию
+            if (this.filterSettings.showOnlyMine && this.user && this.user.sheetNames) {
+                return filteredByRegistration.filter(employee => 
+                    this.user.sheetNames.includes(employee)
+                );
+            }
+            
+            return filteredByRegistration;
+        }
+        
+        // Если глобальная фильтрация выключена - показываем всех
         if (this.filterSettings.showOnlyMine && this.user && this.user.sheetNames) {
             return allEmployees.filter(employee => 
                 this.user.sheetNames.includes(employee)
             );
         }
         
-        const registeredEmployees = this.getRegisteredEmployeesFromUsers();
-        return allEmployees.filter(employee => 
-            registeredEmployees.includes(employee)
-        );
+        return allEmployees;
     }
 
     getRegisteredEmployeesFromUsers() {
         return window.registeredEmployees || [];
     }
-
     // ОБНОВЛЕННЫЙ МЕТОД - цвет берется из базы данных пользователя
     getEmployeeColor(employeeName) {
         // Ищем пользователя, у которого привязано это имя сотрудника
