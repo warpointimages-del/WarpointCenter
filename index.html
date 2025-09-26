@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -6,6 +5,9 @@
     <title>График работы</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script type="module" src="firebase.js"></script>
+    <script type="module" src="admin-panel.js"></script>
+    <script type="module" src="script.js"></script>
 </head>
 <body>
     <div id="app">
@@ -19,7 +21,7 @@
                 <div id="registered-employees"></div>
             </div>
 
-            <!-- Панель фильтров -->
+            <!-- Остальная часть без изменений -->
             <div id="filters-panel">
                 <label class="checkbox-container">
                     <input type="checkbox" id="show-only-mine">
@@ -28,31 +30,23 @@
                 </label>
             </div>
 
-            <!-- Навигация по месяцам -->
             <div id="month-navigation" class="month-navigation hidden">
                 <select id="month-select" class="month-select"></select>
             </div>
 
-            <!-- Основная навигация -->
             <div id="navigation">
                 <button id="prev-week" class="nav-btn">←</button>
                 <div id="current-period"></div>
                 <button id="next-week" class="nav-btn">→</button>
             </div>
 
-            <!-- Переключение вида -->
             <button id="toggle-view" class="toggle-btn">▼</button>
 
-            <!-- Контейнер календаря -->
             <div id="calendar-container">
                 <div id="week-view"></div>
                 <div id="month-view" class="hidden"></div>
             </div>
         </div>
     </div>
-
-    <script type="module" src="firebase.js"></script>
-    <script type="module" src="admin-panel.js"></script>
-    <script type="module" src="script.js"></script>
 </body>
 </html>
