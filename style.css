@@ -6,14 +6,14 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background-color: #1a1a1a;
-    color: #ffffff;
+    background: #1a1a1a;
+    color: #fff;
     line-height: 1.4;
 }
 
 .screen {
     display: none;
-    padding: 16px;
+    padding: 12px;
 }
 
 .screen.active {
@@ -23,24 +23,22 @@ body {
 .loading-spinner {
     text-align: center;
     padding: 50px 20px;
-    font-size: 18px;
 }
 
 .header {
     text-align: center;
-    margin-bottom: 20px;
-    padding-bottom: 15px;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
     border-bottom: 1px solid #333;
 }
 
 .header h1 {
-    font-size: 24px;
-    font-weight: 600;
-    margin-bottom: 8px;
+    font-size: 20px;
+    margin-bottom: 5px;
 }
 
 #user-info {
-    font-size: 14px;
+    font-size: 12px;
     color: #888;
 }
 
@@ -48,254 +46,140 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
-    padding: 10px 0;
+    margin-bottom: 10px;
 }
 
-.nav-btn {
+.nav-btn, .toggle-btn {
     background: #333;
     color: white;
     border: none;
-    padding: 8px 16px;
-    font-size: 16px;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.nav-btn:hover {
-    background: #444;
+    padding: 6px 12px;
+    font-size: 14px;
 }
 
 #current-period {
-    font-size: 18px;
-    font-weight: 600;
+    font-size: 16px;
     text-align: center;
-}
-
-.view-toggle {
-    text-align: center;
-    margin-bottom: 15px;
-}
-
-.toggle-btn {
-    background: #333;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    font-size: 14px;
-    cursor: pointer;
-    transition: background 0.2s;
 }
 
 .calendar-view {
     display: none;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 
 .calendar-view.active {
     display: block;
 }
 
-/* Недельный вид */
-.week-header {
+.week-header, .week-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 1px;
-    margin-bottom: 5px;
 }
 
-.day-header {
-    text-align: center;
+.week-header div {
     padding: 8px 4px;
+    text-align: center;
+    background: #2a2a2a;
     font-size: 12px;
-    font-weight: 600;
-    background: #2a2a2a;
 }
 
-.week-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 1px;
-    min-height: 200px;
-}
-
-.day-cell {
+.day-cell, .month-day {
     background: #2a2a2a;
-    min-height: 80px;
-    padding: 4px;
+    min-height: 60px;
+    padding: 3px;
     position: relative;
-}
-
-.day-number {
-    font-size: 12px;
-    margin-bottom: 4px;
-    color: #888;
-}
-
-/* Месячный вид */
-.month-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 1px;
 }
 
 .month-day {
-    background: #2a2a2a;
-    min-height: 60px;
-    padding: 4px;
-    position: relative;
+    min-height: 50px;
 }
 
-/* Параллелограммы смен */
+.day-number {
+    font-size: 11px;
+    color: #888;
+    margin-bottom: 2px;
+}
+
 .shift-marker {
     position: absolute;
-    height: 4px;
-    background: #4a9eff;
-    transform: skew(-15deg);
-    border-radius: 0;
+    height: 3px;
     left: 2px;
     right: 2px;
-    z-index: 1;
+    transform: skew(-15deg);
 }
 
 .shift-marker.user-shift {
-    height: 6px;
+    height: 4px;
     z-index: 2;
 }
 
-/* Настройки цвета */
 .color-settings {
+    margin-top: 15px;
+    padding: 10px;
     background: #2a2a2a;
-    padding: 15px;
-    margin-top: 20px;
-    border-top: 1px solid #333;
 }
 
 .color-settings h3 {
-    margin-bottom: 15px;
-    font-size: 16px;
+    font-size: 14px;
+    margin-bottom: 10px;
 }
 
 .color-controls label {
     display: block;
-    margin-bottom: 10px;
-    font-size: 14px;
+    font-size: 12px;
+    margin-bottom: 8px;
 }
 
 .color-controls input {
     width: 100%;
-    margin-top: 5px;
-}
-
-.color-preview {
-    width: 100%;
-    height: 40px;
-    margin: 10px 0;
-    background: #4a9eff;
 }
 
 #save-color {
     width: 100%;
-    padding: 10px;
+    padding: 8px;
     background: #333;
     color: white;
     border: none;
-    cursor: pointer;
-    font-size: 14px;
+    margin-top: 5px;
 }
 
-/* Админская панель */
 .admin-panel {
+    margin-top: 15px;
+    padding: 10px;
     background: #2a2a2a;
-    padding: 15px;
-    margin-top: 20px;
-    border-top: 1px solid #333;
 }
 
-.admin-panel h3 {
-    margin-bottom: 15px;
-    font-size: 16px;
+.admin-panel.hidden {
+    display: none;
 }
 
 .user-item {
-    background: #333;
-    padding: 10px;
-    margin-bottom: 10px;
-    border-left: 3px solid #4a9eff;
-}
-
-.user-info {
-    margin-bottom: 10px;
-}
-
-.user-controls select {
-    width: 100%;
-    padding: 5px;
-    background: #1a1a1a;
-    color: white;
-    border: 1px solid #444;
+    padding: 8px;
     margin-bottom: 5px;
-}
-
-.user-controls label {
+    background: #333;
     font-size: 12px;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-/* Адаптивность */
-@media (max-width: 768px) {
-    .screen {
-        padding: 12px;
-    }
-    
-    .week-grid, .month-grid {
-        gap: 0.5px;
-    }
-    
-    .day-cell, .month-day {
-        min-height: 50px;
-        font-size: 10px;
-    }
 }
 
 .hidden {
     display: none !important;
 }
 
-.no-users {
-    text-align: center;
-    padding: 20px;
-    color: #888;
-    font-style: italic;
+.empty {
+    background: #1a1a1a;
 }
 
-.user-status {
-    font-size: 12px;
-    margin-top: 5px;
-    min-height: 16px;
-}
-
-.employee-select, .admin-checkbox {
-    margin: 5px 0;
-}
-
-.admin-label {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    margin: 10px 0;
-    font-size: 14px;
-}
-
-.user-controls label {
-    font-size: 12px;
-    margin-bottom: 5px;
-    display: block;
-}
-
-.loading {
-    opacity: 0.6;
-    pointer-events: none;
+@media (max-width: 768px) {
+    .screen {
+        padding: 8px;
+    }
+    
+    .day-cell, .month-day {
+        min-height: 45px;
+        font-size: 10px;
+    }
+    
+    .shift-marker {
+        height: 2px;
+    }
 }
