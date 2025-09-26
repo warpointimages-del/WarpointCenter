@@ -6,8 +6,9 @@
     <title>График работы</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script type="module" src="firebase.js"></script>
-    <script type="module" src="script.js"></script>
+<script type="module" src="firebase.js"></script>
+<script type="module" src="admin-panel.js"></script>
+<script type="module" src="script.js"></script>
 </head>
 <body>
     <div id="app">
@@ -53,7 +54,10 @@
             </div>
 
             <button id="toggle-view" class="toggle-btn">▼</button>
-
+<!-- Добавьте после блока навигации -->
+<div id="month-navigation" class="month-navigation hidden">
+    <select id="month-select" class="month-select"></select>
+</div>
             <!-- Календарь -->
             <div id="calendar-container">
                 <div id="week-view"></div>
@@ -61,7 +65,5 @@
             </div>
         </div>
     </div>
-
-    <script type="module" src="admin-panel.js"></script>
 </body>
 </html>
