@@ -1,5 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js';
-import { getDatabase, ref, set, get, child, update } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js';
+import { getDatabase, ref, set, get, child, update, remove } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js';
 
 const firebaseConfig = {
     apiKey: "AIzaSyAbLz1MnfjYIQMDkmqgMa09Z3W_j8dnJbM",
@@ -107,6 +107,57 @@ class FirebaseService {
             return false;
         }
     }
+
+    // === МЕТОДЫ ДЛЯ ПРИВЯЗКИ СОТРУДНИКОВ К ПОЛЬЗОВАТЕЛЯМ ===
+
+    async attachEmployeeToUser(userId, employeeName) {
+        try {
+            const userAttachments = await this.getUserAttachments(userId);
+            if (!userAttachments.includes(employeeName)) {
+                userAttachments.push(employeeName);
+                await set(ref(this.db, `userAttachments/${userId}`), userAttachments);
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Ошибка привязки сотрудника:', error);
+            return false;
+        }
+    }
+
+    async detachEmployeeFromUser(userId, employeeName) {
+        try {
+            const userAttachments = await this.getUserAttachments(userId);
+            const updatedAttachments = userAttachments.filter(name => name !== employeeName);
+            await set(ref(this.db, `userAttachments/${userId}`), updatedAttachments);
+            return true;
+        } catch (error) {
+            console.error('Ошибка отвязки сотрудника:', error);
+            return false;
+        }
+    }
+
+    async getUserAttachments(userId) {
+        try {
+            const snapshot = await get(child(ref(this.db), `userAttachments/${userId}`));
+            return snapshot.exists() ? snapshot.val() : [];
+        } catch (error) {
+            console.error('Ошибка получения привязок пользователя:', error);
+            return [];
+        }
+    }
+
+    async getAllAttachments() {
+        try {
+            const snapshot = await get(child(ref(this.db), 'userAttachments'));
+            return snapshot.exists() ? snapshot.val() : {};
+        } catch (error) {
+            console.error('Ошибка получения всех привязок:', error);
+            return {};
+        }
+    }
+
+    // === МЕТОДЫ ДЛЯ НАСТРОЕК ФИЛЬТРОВ ===
 
     async saveFilterSettings(userId, settings) {
         try {
