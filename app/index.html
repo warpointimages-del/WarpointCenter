@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>График смен</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>График смен</h1>
+            <div class="view-controls">
+                <button id="prevBtn" class="nav-btn">◀</button>
+                <span id="currentRange"></span>
+                <button id="nextBtn" class="nav-btn">▶</button>
+            </div>
+        </div>
+        
+        <div id="weekView" class="calendar week-view">
+            <div class="week-header">
+                <div class="day-header" v-for="day in weekDays" :key="day.date">
+                    <div class="day-name">{{ day.name }}</div>
+                    <div class="day-date">{{ day.date }}</div>
+                </div>
+            </div>
+            <div class="week-body">
+                <div class="time-slots">
+                    <div class="time-slot" v-for="hour in 24" :key="hour">
+                        {{ hour - 1 }}:00
+                    </div>
+                </div>
+                <div class="day-column" v-for="day in weekDays" :key="day.date">
+                    <div class="shift" v-for="shift in getShiftsForDay(day.date)" 
+                         :key="shift.id"
+                         :style="getShiftStyle(shift)"
+                         :class="{ 'my-shift': shift.isMyShift }">
+                        {{ shift.employee }} ({{ shift.hours }}ч)
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="monthView" class="calendar month-view hidden">
+            <div class="month-grid">
+                <div class="month-header">
+                    <div class="day-name" v-for="dayName in dayNames" :key="dayName">
+                        {{ dayName }}
+                    </div>
+                </div>
+                <div class="month-days">
+                    <div class="day-cell" v-for="day in monthDays" :key="day.date"
+                         :class="{ 'other-month': !day.isCurrentMonth, 'today': day.isToday }">
+                        <div class="day-number">{{ day.number }}</div>
+                        <div class="day-shifts">
+                            <div class="shift-preview" v-for="shift in getShiftsForDay(day.date)"
+                                 :key="shift.id"
+                                 :style="getShiftPreviewStyle(shift)"
+                                 :class="{ 'my-shift': shift.isMyShift }">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <button id="toggleViewBtn" class="toggle-btn">▼</button>
+        
+        <div class="controls">
+            <div class="color-picker">
+                <h3>Мой цвет смен:</h3>
+                <div class="sliders">
+                    <label>Оттенок: <span id="hueValue">0</span>°</label>
+                    <input type="range" id="hueSlider" min="0" max="360" value="0">
+                    
+                    <label>Насыщенность: <span id="saturationValue">100</span>%</label>
+                    <input type="range" id="saturationSlider" min="0" max="100" value="100">
+                    
+                    <label>Яркость: <span id="lightnessValue">50</span>%</label>
+                    <input type="range" id="lightnessSlider" min="0" max="100" value="50">
+                </div>
+                <div class="color-preview" id="colorPreview"></div>
+                <button id="saveColorBtn">Сохранить цвет</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
