@@ -112,17 +112,23 @@ class AdminPanel {
         this.users[userId].isAdmin = isAdmin;
     }
 
-updateRegisteredEmployees() {
+async loadAllUsersData() {
+    this.usersData = await firebaseService.getAllUsers();
+    console.log('Загруженные пользователи:', this.usersData);
+    this.updateRegisteredEmployeesList();
+}
+
+updateRegisteredEmployeesList() {
     const allEmployees = new Set();
     
-    Object.values(this.users).forEach(user => {
+    Object.values(this.usersData).forEach(user => {
         if (user.sheetNames && Array.isArray(user.sheetNames)) {
             user.sheetNames.forEach(name => allEmployees.add(name.trim()));
         }
     });
     
     window.registeredEmployees = Array.from(allEmployees);
-    console.log('Обновленные зарегистрированные сотрудники:', window.registeredEmployees);
+    console.log('Зарегистрированные сотрудники из БД:', window.registeredEmployees);
     
     // Автоматически обновляем отображение графика
     if (window.scheduleApp) {
