@@ -185,6 +185,13 @@ class AdminPanel {
         }
     }
 
+    async updateAvailableMonths() {
+    if (window.scheduleApp) {
+        await window.scheduleApp.loadAvailableMonths();
+        window.scheduleApp.renderMonthNavigation();
+        }
+    }
+    
     async removeEmployee(employeeName) {
         const success = await firebaseService.removeRegisteredEmployee(employeeName);
         if (success) {
