@@ -389,52 +389,65 @@ class ScheduleApp {
         }
     }
 
-    findDateRowSimple(data) {
-        // ПРОВЕРЯЕМ ВСЕ СТРОКИ ПОДРЯД с 0 по 9
-        for (let rowIndex = 0; rowIndex < Math.min(10, data.length); rowIndex++) {
-            const row = data[rowIndex];
-            if (!row || row.length < 10) continue; // Минимум 10 столбцов
+findDateRowSimple(data) {
+    // ПРОВЕРЯЕМ ВСЕ СТРОКИ ПОДРЯД с 0 по 9
+    for (let rowIndex = 0; rowIndex < Math.min(10, data.length); rowIndex++) {
+        const row = data[rowIndex];
+        if (!row || row.length < 10) {
+            console.log(`Строка ${rowIndex}: пропускаем - мало столбцов`);
+            continue;
+        }
+        
+        console.log(`=== ПРОВЕРЯЕМ СТРОКУ ${rowIndex}:`, row);
+        
+        let numberCount = 0;
+        // Проверяем столбцы со 2 по 31 (начиная с индекса 1)
+        for (let colIndex = 1; colIndex < Math.min(32, row.length); colIndex++) {
+            const cellValue = row[colIndex];
+            // Пробуем извлечь число разными способами
+            const number = this.extractDateNumberAdvanced(cellValue);
             
-            console.log(`=== ПРОВЕРЯЕМ СТРОКУ ${rowIndex}:`, row);
-            
-            let numberCount = 0;
-            // Проверяем столбцы со 2 по 31 (начиная с индекса 1)
-            for (let colIndex = 1; colIndex < Math.min(32, row.length); colIndex++) {
-                const cellValue = row[colIndex];
-                const number = this.extractDateNumber(cellValue);
-                
-                if (number !== null) {
-                    console.log(`Столбец ${colIndex}: "${cellValue}" -> число ${number}`);
-                    numberCount++;
-                }
-            }
-            
-            console.log(`Строка ${rowIndex}: найдено ${numberCount} чисел`);
-            
-            // Если найдено достаточно чисел (хотя бы 15)
-            if (numberCount >= 15) {
-                console.log(`✅ НАЙДЕНА СТРОКА С ДАТАМИ: строка ${rowIndex}, чисел: ${numberCount}`);
-                return rowIndex;
+            if (number !== null) {
+                console.log(`Столбец ${colIndex}: "${cellValue}" -> число ${number}`);
+                numberCount++;
             }
         }
         
-        console.log('❌ Не найдено строк с датами');
-        return -1;
+        console.log(`Строка ${rowIndex}: найдено ${numberCount} чисел`);
+        
+        // Уменьшаем порог до 10 чисел для большей гибкости
+        if (numberCount >= 10) {
+            console.log(`✅ НАЙДЕНА СТРОКА С ДАТАМИ: строка ${rowIndex}, чисел: ${numberCount}`);
+            return rowIndex;
+        }
     }
+    
+    console.log('❌ Не найдено строк с датами');
+    return -1;
+}
 
-    extractDateNumber(value) {
-        if (!value) return null;
-        
-        const str = value.toString().trim();
-        
-        // Прямое число (1, 2, 3, ...)
-        const num = parseInt(str);
+extractDateNumberAdvanced(value) {
+    if (!value) return null;
+    
+    const str = value.toString().trim();
+    
+    // Прямое число (1, 2, 3, ...)
+    const num = parseInt(str);
+    if (!isNaN(num) && num >= 1 && num <= 31) {
+        return num;
+    }
+    
+    // Число в кавычках или с текстом ("1", "2", "1.0", "1 сент" и т.д.)
+    const match = str.match(/(\d+)/);
+    if (match) {
+        const num = parseInt(match[1]);
         if (!isNaN(num) && num >= 1 && num <= 31) {
             return num;
         }
-        
-        return null;
     }
+    
+    return null;
+}
 
     extractEmployeeName(value) {
         if (!value) return null;
