@@ -234,48 +234,29 @@ class ScheduleApp {
         }
     }
 
-parseCSV(csvText) {
-    const lines = csvText.split('\n').filter(line => line.trim());
-    const result = [];
-    
-    for (let line of lines) {
-        // УЛУЧШЕННЫЙ ПАРСИНГ - сначала разбиваем по запятым, потом чистим кавычки
-        const cells = [];
-        let currentCell = '';
-        let inQuotes = false;
+    parseCSV(csvText) {
+        console.log('Исходный CSV текст:', csvText);
         
-        for (let i = 0; i < line.length; i++) {
-            const char = line[i];
+        const lines = csvText.split('\n').filter(line => line.trim());
+        const result = [];
+        
+        for (let line of lines) {
+            // ПРОСТОЙ ПАРСИНГ - разбиваем по запятым
+            const cells = line.split(',');
             
-            if (char === '"') {
-                inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-                // Добавляем ячейку и сбрасываем текущую
-                cells.push(currentCell);
-                currentCell = '';
-            } else {
-                currentCell += char;
-            }
+            // Чистим каждую ячейку
+            const cleanedCells = cells.map(cell => {
+                let cleaned = cell.replace(/^["']|["']$/g, '');
+                cleaned = cleaned.trim();
+                return cleaned;
+            });
+            
+            result.push(cleanedCells);
         }
         
-        // Добавляем последнюю ячейку
-        cells.push(currentCell);
-        
-        // Чистим каждую ячейку от кавычек и пробелов
-        const cleanedCells = cells.map(cell => {
-            // Убираем кавычки в начале и конце
-            let cleaned = cell.replace(/^"|"$/g, '');
-            // Убираем лишние пробелы
-            cleaned = cleaned.trim();
-            return cleaned;
-        });
-        
-        result.push(cleanedCells);
+        console.log('Парсинг CSV результат:', result);
+        return result;
     }
-    
-    console.log('Парсинг CSV результат:', result);
-    return result;
-}
 
     async loadViaGviz(sheetName) {
         try {
@@ -307,6 +288,12 @@ parseCSV(csvText) {
     processCSVData(data, sheetName) {
         console.log('=== ОБРАБОТКА CSV ДАННЫХ ===');
         console.log('Все данные:', data);
+        
+        // ОТЛАДКА: покажем все строки
+        console.log('=== ВСЕ СТРОКИ ДЛЯ ОТЛАДКИ ===');
+        for (let i = 0; i < data.length; i++) {
+            console.log(`Строка ${i} (${data[i]?.length} колонок):`, data[i]);
+        }
         
         if (!data || data.length === 0) {
             console.warn('Нет CSV данных');
@@ -373,54 +360,54 @@ parseCSV(csvText) {
         }
     }
 
-findCorrectDateRow(data) {
-    for (let rowIndex = 0; rowIndex < data.length; rowIndex++) {
-        const row = data[rowIndex];
-        if (!row) continue;
-        
-        console.log(`=== ПРОВЕРЯЕМ СТРОКУ ${rowIndex}:`, row);
-        
-        // Простая проверка: если в строке есть много чисел от 1 до 31
-        let numberCount = 0;
-        for (let colIndex = 0; colIndex < row.length; colIndex++) {
-            const number = this.extractDateNumber(row[colIndex]);
-            if (number !== null) {
-                numberCount++;
-                console.log(`Найдено число ${number} в столбце ${colIndex}`);
+    findCorrectDateRow(data) {
+        for (let rowIndex = 0; rowIndex < data.length; rowIndex++) {
+            const row = data[rowIndex];
+            if (!row) continue;
+            
+            console.log(`=== ПРОВЕРЯЕМ СТРОКУ ${rowIndex}:`, row);
+            
+            // Простая проверка: если в строке есть много чисел от 1 до 31
+            let numberCount = 0;
+            for (let colIndex = 0; colIndex < row.length; colIndex++) {
+                const number = this.extractDateNumber(row[colIndex]);
+                if (number !== null) {
+                    numberCount++;
+                    console.log(`Найдено число ${number} в столбце ${colIndex}`);
+                }
+            }
+            
+            console.log(`Строка ${rowIndex}: найдено ${numberCount} чисел`);
+            
+            // Если найдено достаточно чисел (хотя бы 10)
+            if (numberCount >= 10) {
+                console.log(`✅ НАЙДЕНА СТРОКА С ДАТАМИ: строка ${rowIndex}`);
+                return rowIndex;
             }
         }
         
-        console.log(`Строка ${rowIndex}: найдено ${numberCount} чисел`);
-        
-        // Если найдено достаточно чисел (хотя бы 10)
-        if (numberCount >= 10) {
-            console.log(`✅ НАЙДЕНА СТРОКА С ДАТАМИ: строка ${rowIndex}`);
-            return rowIndex;
-        }
+        console.log('❌ Не найдено строк с датами');
+        return -1;
     }
-    
-    console.log('❌ Не найдено строк с датами');
-    return -1;
-}
 
-extractCorrectDates(dateRow) {
-    const dates = [];
-    
-    // Просто собираем ВСЕ числа от 1 до 31 из строки
-    for (let colIndex = 0; colIndex < dateRow.length; colIndex++) {
-        const number = this.extractDateNumber(dateRow[colIndex]);
-        if (number !== null && number >= 1 && number <= 31) {
-            dates.push(number);
-            console.log(`Добавлена дата: ${number}`);
+    extractCorrectDates(dateRow) {
+        const dates = [];
+        
+        // Просто собираем ВСЕ числа от 1 до 31 из строки
+        for (let colIndex = 0; colIndex < dateRow.length; colIndex++) {
+            const number = this.extractDateNumber(dateRow[colIndex]);
+            if (number !== null && number >= 1 && number <= 31) {
+                dates.push(number);
+                console.log(`Добавлена дата: ${number}`);
+            }
         }
+        
+        // Сортируем по возрастанию
+        dates.sort((a, b) => a - b);
+        console.log('Все даты:', dates);
+        
+        return dates;
     }
-    
-    // Сортируем по возрастанию
-    dates.sort((a, b) => a - b);
-    console.log('Все даты:', dates);
-    
-    return dates;
-}
 
     extractDateNumber(value) {
         if (!value) return null;
