@@ -12,6 +12,8 @@ class ScheduleApp {
         this.availableMonths = [];
         this.registeredEmployees = [];
         this.userAttachments = [];
+        this.allUsers = {};
+        this.showColorPicker = false;
         
         this.init();
     }
@@ -23,6 +25,7 @@ class ScheduleApp {
             this.tg.enableClosingConfirmation();
             
             await this.initializeUser();
+            await this.loadAllUsers();
             await this.loadRegisteredEmployees();
             await this.loadUserAttachments();
             await this.loadFilterSettings();
@@ -69,6 +72,11 @@ class ScheduleApp {
                 document.getElementById('admin-panel').classList.remove('hidden');
             }
         }
+    }
+
+    async loadAllUsers() {
+        this.allUsers = await firebaseService.getAllUsers();
+        console.log('Все пользователи:', this.allUsers);
     }
 
     async loadRegisteredEmployees() {
@@ -241,10 +249,8 @@ class ScheduleApp {
         const result = [];
         
         for (let line of lines) {
-            // ПРОСТОЙ ПАРСИНГ - разбиваем по запятым
             const cells = line.split(',');
             
-            // Чистим каждую ячейку
             const cleanedCells = cells.map(cell => {
                 let cleaned = cell.replace(/^["']|["']$/g, '');
                 cleaned = cleaned.trim();
@@ -285,64 +291,20 @@ class ScheduleApp {
         }
     }
 
-processCSVData(data, sheetName) {
-    console.log('=== ОБРАБОТКА CSV ДАННЫХ ===');
-    console.log('Все данные:', data);
-    
-    // ОТЛАДКА: покажем все строки
-    console.log('=== ВСЕ СТРОКИ ДЛЯ ОТЛАДКИ ===');
-    for (let i = 0; i < data.length; i++) {
-        console.log(`Строка ${i} (${data[i]?.length} колонок):`, data[i]);
-    }
-    
-    if (!data || data.length === 0) {
-        console.warn('Нет CSV данных');
-        return;
-    }
-    
-    this.scheduleData = {};
-    
-    // ПЕРВЫЙ ВАРИАНТ: проверяем строку 3 (индекс 3) - там могут быть даты в одной ячейке
-    let dateRowIndex = -1;
-    let dates = [];
-    
-    // Проверяем строку 3 - она может содержать даты в формате "текст,1,2,3,4,..."
-    if (data[3] && data[3].length > 0) {
-        const thirdRow = data[3];
-        console.log('=== ПРОВЕРЯЕМ СТРОКУ 3 ОСОБО ===:', thirdRow);
+    processCSVData(data, sheetName) {
+        console.log('=== ОБРАБОТКА CSV ДАННЫХ ===');
+        console.log('Все данные:', data);
         
-        // Если в первой ячейке есть запятые и числа
-        if (thirdRow[0] && thirdRow[0].includes(',')) {
-            const parts = thirdRow[0].split(',');
-            console.log('Части строки 3:', parts);
-            
-            // Ищем числа в этих частях
-            const numbers = [];
-            for (let part of parts) {
-                const num = this.extractDateNumber(part.trim());
-                if (num !== null) {
-                    numbers.push(num);
-                }
-            }
-            
-            console.log('Найдены числа в строке 3:', numbers);
-            
-            // Если нашли последовательность чисел
-            if (numbers.length >= 10) {
-                dateRowIndex = 3;
-                dates = numbers.filter((num, index, arr) => {
-                    // Фильтруем чтобы были только уникальные последовательные числа
-                    return index === 0 || num === arr[index - 1] + 1;
-                });
-                console.log('✅ НАЙДЕНЫ ДАТЫ В СТРОКЕ 3:', dates);
-            }
+        if (!data || data.length === 0) {
+            console.warn('Нет CSV данных');
+            return;
         }
-    }
-    
-    // ВТОРОЙ ВАРИАНТ: если не нашли в строке 3, ищем обычным способом
-    if (dateRowIndex === -1) {
-        dateRowIndex = this.findCorrectDateRow(data);
-        console.log('Найдена строка с датами обычным поиском:', dateRowIndex);
+        
+        this.scheduleData = {};
+        
+        // Ищем строку с последовательностью чисел от 1 до 28
+        const dateRowIndex = this.findDateRowBySequence(data);
+        console.log('Найдена строка с датами:', dateRowIndex);
         
         if (dateRowIndex === -1) {
             console.warn('Не удалось найти строку с датами');
@@ -350,122 +312,127 @@ processCSVData(data, sheetName) {
         }
         
         const dateRow = data[dateRowIndex];
-        dates = this.extractCorrectDates(dateRow);
-    }
-    
-    console.log('Извлеченные даты:', dates);
-    
-    if (dates.length === 0) {
-        console.warn('Не найдено дат в строке');
-        return;
-    }
-    
-    // Все строки ниже - сотрудники
-    const startRow = dateRowIndex + 1;
-    for (let i = startRow; i < data.length; i++) {
-        const row = data[i];
-        if (!row || row.length === 0) continue;
+        const dates = this.extractDatesFromRow(dateRow);
+        console.log('Извлеченные даты:', dates);
         
-        const employeeName = this.extractEmployeeName(row[0]); 
-        if (!employeeName) continue;
+        if (dates.length === 0) {
+            console.warn('Не найдено дат в строке');
+            return;
+        }
         
-        console.log(`Обрабатываем сотрудника: "${employeeName}"`);
-        
-        const shifts = [];
-        for (let j = 1; j < row.length; j++) {
-            const dateIndex = j - 1;
-            if (dateIndex < dates.length) {
-                const shiftValue = row[j];
-                if (shiftValue && shiftValue.trim()) {
-                    const hours = this.parseHours(shiftValue);
-                    if (hours !== null && hours >= 1) {
-                        shifts.push({
-                            date: dates[dateIndex],
-                            hours: hours,
-                            month: sheetName
-                        });
-                        console.log(`Найдена смена: ${dates[dateIndex]} число - ${hours}ч`);
+        // Все строки ниже - сотрудники
+        const startRow = dateRowIndex + 1;
+        for (let i = startRow; i < data.length; i++) {
+            const row = data[i];
+            if (!row || row.length === 0) continue;
+            
+            const employeeName = this.extractEmployeeName(row[0]); 
+            if (!employeeName) continue;
+            
+            console.log(`Обрабатываем сотрудника: "${employeeName}"`);
+            
+            const shifts = [];
+            for (let j = 1; j < row.length; j++) {
+                const dateIndex = j - 1;
+                if (dateIndex < dates.length) {
+                    const shiftValue = row[j];
+                    if (shiftValue && shiftValue.trim()) {
+                        const hours = this.parseHours(shiftValue);
+                        if (hours !== null && hours >= 1) {
+                            shifts.push({
+                                date: dates[dateIndex],
+                                hours: hours,
+                                month: sheetName
+                            });
+                            console.log(`Найдена смена: ${dates[dateIndex]} число - ${hours}ч`);
+                        }
                     }
+                }
+            }
+            
+            if (shifts.length > 0) {
+                this.scheduleData[employeeName] = shifts;
+            }
+        }
+        
+        console.log('Итоговые данные графика:', this.scheduleData);
+        
+        if (Object.keys(this.scheduleData).length > 0) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+        }
+    }
+
+    findDateRowBySequence(data) {
+        const targetSequence = Array.from({length: 28}, (_, i) => i + 1);
+        
+        for (let rowIndex = 0; rowIndex < data.length; rowIndex++) {
+            const row = data[rowIndex];
+            if (!row) continue;
+            
+            console.log(`=== ПРОВЕРЯЕМ СТРОКУ ${rowIndex}:`, row);
+            
+            // Собираем все числа из строки
+            const numbersInRow = [];
+            for (let colIndex = 0; colIndex < row.length; colIndex++) {
+                const number = this.extractDateNumber(row[colIndex]);
+                if (number !== null) {
+                    numbersInRow.push(number);
+                }
+            }
+            
+            console.log(`Числа в строке ${rowIndex}:`, numbersInRow);
+            
+            // Проверяем, содержит ли строка последовательность от 1 до 28
+            if (this.containsSequence(numbersInRow, targetSequence)) {
+                console.log(`✅ НАЙДЕНА СТРОКА С ДАТАМИ: строка ${rowIndex}`);
+                return rowIndex;
+            }
+        }
+        
+        console.log('❌ Не найдено строк с правильной последовательностью дат');
+        return -1;
+    }
+
+    containsSequence(numbers, targetSequence) {
+        if (numbers.length < targetSequence.length) return false;
+        
+        // Ищем подпоследовательность targetSequence в numbers
+        for (let i = 0; i <= numbers.length - targetSequence.length; i++) {
+            let match = true;
+            for (let j = 0; j < targetSequence.length; j++) {
+                if (numbers[i + j] !== targetSequence[j]) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) return true;
+        }
+        return false;
+    }
+
+    extractDatesFromRow(dateRow) {
+        const dates = [];
+        let expectedNumber = 1;
+        
+        for (let colIndex = 0; colIndex < dateRow.length; colIndex++) {
+            const number = this.extractDateNumber(dateRow[colIndex]);
+            
+            if (number === expectedNumber) {
+                dates.push(number);
+                expectedNumber++;
+            } else if (number !== null && number > expectedNumber) {
+                // Если пропущены числа, добавляем их
+                while (expectedNumber <= number) {
+                    dates.push(expectedNumber);
+                    expectedNumber++;
                 }
             }
         }
         
-        if (shifts.length > 0) {
-            this.scheduleData[employeeName] = shifts;
-        }
+        console.log('Все даты:', dates);
+        return dates;
     }
-    
-    console.log('Итоговые данные графика:', this.scheduleData);
-    
-    if (Object.keys(this.scheduleData).length > 0) {
-        document.getElementById('loading').classList.add('hidden');
-        document.getElementById('main-content').classList.remove('hidden');
-    }
-}
-
-findCorrectDateRow(data) {
-    for (let rowIndex = 0; rowIndex < data.length; rowIndex++) {
-        const row = data[rowIndex];
-        if (!row) continue;
-        
-        console.log(`=== ПРОВЕРЯЕМ СТРОКУ ${rowIndex}:`, row);
-        
-        // Ищем последовательность чисел 1,2,3,4... в разных ячейках
-        let sequenceLength = 0;
-        let maxSequence = 0;
-        let expectedNumber = 1;
-        
-        for (let colIndex = 0; colIndex < row.length; colIndex++) {
-            const number = this.extractDateNumber(row[colIndex]);
-            
-            if (number === expectedNumber) {
-                sequenceLength++;
-                expectedNumber++;
-                maxSequence = Math.max(maxSequence, sequenceLength);
-            } else if (number !== null) {
-                // Сбрасываем последовательность если число не то
-                sequenceLength = 0;
-                expectedNumber = 1;
-            }
-        }
-        
-        console.log(`Строка ${rowIndex}: максимальная последовательность ${maxSequence} чисел`);
-        
-        // Если найдена хорошая последовательность (хотя бы 10 чисел подряд)
-        if (maxSequence >= 10) {
-            console.log(`✅ НАЙДЕНА СТРОКА С ДАТАМИ: строка ${rowIndex}`);
-            return rowIndex;
-        }
-    }
-    
-    console.log('❌ Не найдено строк с правильной последовательностью дат');
-    return -1;
-}
-
-extractCorrectDates(dateRow) {
-    const dates = [];
-    let expectedNumber = 1;
-    
-    // Собираем последовательные числа
-    for (let colIndex = 0; colIndex < dateRow.length; colIndex++) {
-        const number = this.extractDateNumber(dateRow[colIndex]);
-        
-        if (number === expectedNumber) {
-            dates.push(number);
-            expectedNumber++;
-            console.log(`Добавлена дата: ${number}`);
-        } else if (number !== null && number > expectedNumber) {
-            // Если пропущены числа, добавляем их
-            while (expectedNumber <= number) {
-                dates.push(expectedNumber);
-                expectedNumber++;
-            }
-        }
-    }
-    
-    console.log('Все даты:', dates);
-    return dates;
-}
 
     extractDateNumber(value) {
         if (!value) return null;
@@ -682,6 +649,7 @@ extractCorrectDates(dateRow) {
         
         this.updateNavigation();
         this.renderMonthNavigation();
+        this.renderColorPicker();
         
         const employeesToShow = this.getFilteredEmployees();
         console.log('Сотрудники для отображения:', employeesToShow);
@@ -693,6 +661,99 @@ extractCorrectDates(dateRow) {
         }
         
         console.log('=== RENDER END ===');
+    }
+
+    renderColorPicker() {
+        const filtersPanel = document.getElementById('filters-panel');
+        
+        // Удаляем старый цветовой пикер если есть
+        const oldPicker = document.getElementById('color-picker');
+        if (oldPicker) {
+            oldPicker.remove();
+        }
+        
+        if (!this.user) return;
+        
+        const colorPicker = document.createElement('div');
+        colorPicker.id = 'color-picker';
+        colorPicker.className = 'color-picker';
+        
+        const userColor = this.user.color || { h: 200, s: 80, l: 60 };
+        const hslColor = `hsl(${userColor.h}, ${userColor.s}%, ${userColor.l}%)`;
+        
+        colorPicker.innerHTML = `
+            <div class="color-picker-header">
+                <span>Цвет отображения</span>
+                <button id="toggle-color-picker" class="toggle-color-btn">
+                    ${this.showColorPicker ? '▲' : '▼'}
+                </button>
+            </div>
+            <div class="color-preview" style="background-color: ${hslColor}; margin: 5px 0; height: 20px; border: 1px solid #555;"></div>
+            <div class="color-controls" style="${this.showColorPicker ? '' : 'display: none;'}">
+                <div class="slider-container">
+                    <span>H</span>
+                    <input type="range" min="0" max="360" value="${userColor.h}" class="hue-slider">
+                    <span>${userColor.h}</span>
+                </div>
+                <div class="slider-container">
+                    <span>S</span>
+                    <input type="range" min="0" max="100" value="${userColor.s}" class="saturation-slider">
+                    <span>${userColor.s}%</span>
+                </div>
+                <div class="slider-container">
+                    <span>L</span>
+                    <input type="range" min="0" max="100" value="${userColor.l}" class="lightness-slider">
+                    <span>${userColor.l}%</span>
+                </div>
+            </div>
+        `;
+        
+        filtersPanel.appendChild(colorPicker);
+        
+        // Обработчики событий
+        document.getElementById('toggle-color-picker').addEventListener('click', () => {
+            this.showColorPicker = !this.showColorPicker;
+            this.renderColorPicker();
+        });
+        
+        const hueSlider = colorPicker.querySelector('.hue-slider');
+        const saturationSlider = colorPicker.querySelector('.saturation-slider');
+        const lightnessSlider = colorPicker.querySelector('.lightness-slider');
+        
+        const updateColor = () => {
+            const newColor = {
+                h: parseInt(hueSlider.value),
+                s: parseInt(saturationSlider.value),
+                l: parseInt(lightnessSlider.value)
+            };
+            
+            // Обновляем предпросмотр
+            const preview = colorPicker.querySelector('.color-preview');
+            preview.style.backgroundColor = `hsl(${newColor.h}, ${newColor.s}%, ${newColor.l}%)`;
+            
+            // Обновляем значения
+            hueSlider.nextElementSibling.textContent = newColor.h;
+            saturationSlider.nextElementSibling.textContent = newColor.s + '%';
+            lightnessSlider.nextElementSibling.textContent = newColor.l + '%';
+            
+            // Сохраняем в базу данных
+            this.saveUserColor(newColor);
+        };
+        
+        hueSlider.addEventListener('input', updateColor);
+        saturationSlider.addEventListener('input', updateColor);
+        lightnessSlider.addEventListener('input', updateColor);
+    }
+
+    async saveUserColor(color) {
+        if (this.user) {
+            await firebaseService.updateUserColor(this.user.id, color);
+            this.user.color = color;
+            // Обновляем всех пользователей
+            await this.loadAllUsers();
+            // Перерисовываем график
+            this.render();
+        }
     }
 
     updateNavigation() {
@@ -873,6 +934,17 @@ extractCorrectDates(dateRow) {
     }
 
     getEmployeeColor(employeeName) {
+        // Ищем пользователя, которому принадлежит этот сотрудник
+        for (const userId in this.allUsers) {
+            const user = this.allUsers[userId];
+            const userAttachments = this.userAttachmentsCache || {};
+            
+            if (userAttachments[userId] && userAttachments[userId].includes(employeeName)) {
+                return user.color || this.generateColorFromName(employeeName);
+            }
+        }
+        
+        // Если не нашли, генерируем цвет из имени
         return this.generateColorFromName(employeeName);
     }
 
