@@ -308,7 +308,7 @@ class ScheduleApp {
         
         this.scheduleData = {};
         
-        // Ищем строку с датами - со второго столбца должны идти числа
+        // ПРОСТОЙ ПОИСК: ищем строку где есть много чисел (даты месяца)
         const dateRowIndex = this.findDateRowSimple(data);
         console.log('Найдена строка с датами:', dateRowIndex);
         
@@ -317,8 +317,24 @@ class ScheduleApp {
             return;
         }
         
+        // Даты - это найденная строка, начиная со ВТОРОГО столбца
         const dateRow = data[dateRowIndex];
-        const dates = this.extractDatesSimple(dateRow);
+        const dates = [];
+        
+        // Извлекаем даты со второго столбца (индекс 1) до 31 числа
+        for (let colIndex = 1; colIndex < Math.min(32, dateRow.length); colIndex++) {
+            const number = this.extractDateNumber(dateRow[colIndex]);
+            if (number !== null) {
+                dates.push(number);
+            } else {
+                // Если ячейка пустая, но мы еще в пределах 31, добавляем ожидаемое число
+                const expectedNumber = dates.length + 1;
+                if (expectedNumber <= 31) {
+                    dates.push(expectedNumber);
+                }
+            }
+        }
+        
         console.log('Извлеченные даты:', dates);
         
         if (dates.length === 0) {
@@ -326,12 +342,12 @@ class ScheduleApp {
             return;
         }
         
-        // Все строки ниже - сотрудники и их смены
+        // Все строки НИЖЕ найденной строки с датами - это сотрудники
         for (let i = dateRowIndex + 1; i < data.length; i++) {
             const row = data[i];
             if (!row || row.length === 0) continue;
             
-            // Первый столбец - имя сотрудника
+            // Первый столбец (индекс 0) - имя сотрудника
             const employeeName = this.extractEmployeeName(row[0]); 
             if (!employeeName) continue;
             
@@ -374,55 +390,36 @@ class ScheduleApp {
     }
 
     findDateRowSimple(data) {
-        // Ищем строку, где со второго столбца идут числа (даты)
+        // ПРОВЕРЯЕМ ВСЕ СТРОКИ ПОДРЯД с 0 по 9
         for (let rowIndex = 0; rowIndex < Math.min(10, data.length); rowIndex++) {
             const row = data[rowIndex];
-            if (!row || row.length < 30) continue; // Минимум 30 столбцов
+            if (!row || row.length < 10) continue; // Минимум 10 столбцов
             
-            console.log(`Проверяем строку ${rowIndex}:`, row);
+            console.log(`=== ПРОВЕРЯЕМ СТРОКУ ${rowIndex}:`, row);
             
             let numberCount = 0;
-            // Проверяем столбцы со 2 по 31 (30 столбцов)
+            // Проверяем столбцы со 2 по 31 (начиная с индекса 1)
             for (let colIndex = 1; colIndex < Math.min(32, row.length); colIndex++) {
                 const cellValue = row[colIndex];
                 const number = this.extractDateNumber(cellValue);
                 
-                if (number !== null && number >= 1 && number <= 31) {
+                if (number !== null) {
+                    console.log(`Столбец ${colIndex}: "${cellValue}" -> число ${number}`);
                     numberCount++;
                 }
             }
             
-            // Если найдено достаточно чисел (хотя бы 25 из 30)
-            if (numberCount >= 25) {
-                console.log(`Найдена строка с датами: строка ${rowIndex}, чисел: ${numberCount}`);
+            console.log(`Строка ${rowIndex}: найдено ${numberCount} чисел`);
+            
+            // Если найдено достаточно чисел (хотя бы 15)
+            if (numberCount >= 15) {
+                console.log(`✅ НАЙДЕНА СТРОКА С ДАТАМИ: строка ${rowIndex}, чисел: ${numberCount}`);
                 return rowIndex;
             }
         }
         
-        console.log('Не найдено строк с датами');
+        console.log('❌ Не найдено строк с датами');
         return -1;
-    }
-
-    extractDatesSimple(dateRow) {
-        const dates = [];
-        
-        // Извлекаем даты со второго столбца
-        for (let colIndex = 1; colIndex < Math.min(32, dateRow.length); colIndex++) {
-            const cellValue = dateRow[colIndex];
-            const number = this.extractDateNumber(cellValue);
-            
-            if (number !== null && number >= 1 && number <= 31) {
-                dates.push(number);
-            } else {
-                // Если ячейка пустая или не число, но мы еще в пределах 31, добавляем ожидаемое число
-                const expectedNumber = dates.length + 1;
-                if (expectedNumber <= 31) {
-                    dates.push(expectedNumber);
-                }
-            }
-        }
-        
-        return dates;
     }
 
     extractDateNumber(value) {
@@ -430,25 +427,10 @@ class ScheduleApp {
         
         const str = value.toString().trim();
         
-        // Прямое число
+        // Прямое число (1, 2, 3, ...)
         const num = parseInt(str);
         if (!isNaN(num) && num >= 1 && num <= 31) {
             return num;
-        }
-        
-        // Число с точкой (например, "1.0")
-        const numWithDot = parseFloat(str);
-        if (!isNaN(numWithDot) && numWithDot >= 1 && numWithDot <= 31) {
-            return Math.floor(numWithDot);
-        }
-        
-        // Дата в формате "1 сент" и т.д.
-        const dateMatch = str.match(/^(\d+)/);
-        if (dateMatch) {
-            const dateNum = parseInt(dateMatch[1]);
-            if (!isNaN(dateNum) && dateNum >= 1 && dateNum <= 31) {
-                return dateNum;
-            }
         }
         
         return null;
@@ -461,6 +443,7 @@ class ScheduleApp {
         
         // Пропускаем пустые строки и явно не-имена
         if (!str || str === '' || str === 'ФИО' || str === 'Сотрудник' || 
+            str === '- Управляющий:' || str.includes('Смена') ||
             this.extractDateNumber(str) !== null) {
             return null;
         }
