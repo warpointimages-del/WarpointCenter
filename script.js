@@ -239,36 +239,46 @@ class ScheduleApp {
         }
     }
 
-    parseCSV(csvText) {
-        const lines = csvText.split('\n').filter(line => line.trim());
-        const result = [];
+parseCSV(csvText) {
+    const lines = csvText.split('\n').filter(line => line.trim());
+    const result = [];
+    
+    for (let line of lines) {
+        // УЛУЧШЕННЫЙ ПАРСИНГ CSV - учитываем что даты могут быть в первой строке
+        const cells = [];
+        let currentCell = '';
+        let inQuotes = false;
         
-        for (let line of lines) {
-            // Улучшенный парсинг CSV с учетом кавычек и запятых внутри значений
-            const cells = [];
-            let currentCell = '';
-            let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
             
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                
-                if (char === '"') {
-                    inQuotes = !inQuotes;
-                } else if (char === ',' && !inQuotes) {
-                    cells.push(currentCell.trim());
-                    currentCell = '';
-                } else {
-                    currentCell += char;
-                }
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                cells.push(currentCell.trim());
+                currentCell = '';
+            } else {
+                currentCell += char;
             }
-            
-            cells.push(currentCell.trim());
-            result.push(cells.map(cell => cell.replace(/^"|"$/g, ''))); // Убираем окружающие кавычки
         }
         
-        console.log('Парсинг CSV результат:', result);
-        return result;
+        cells.push(currentCell.trim());
+        
+        // Убираем окружающие кавычки и очищаем ячейки
+        const cleanedCells = cells.map(cell => {
+            // Убираем кавычки в начале и конце
+            let cleaned = cell.replace(/^"|"$/g, '');
+            // Убираем лишние пробелы
+            cleaned = cleaned.trim();
+            return cleaned;
+        });
+        
+        result.push(cleanedCells);
     }
+    
+    console.log('Парсинг CSV результат:', result);
+    return result;
+}
 
     async loadViaGviz(sheetName) {
         try {
