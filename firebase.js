@@ -108,6 +108,16 @@ class FirebaseService {
         }
     }
 
+    async updateUserColor(userId, color) {
+        try {
+            await update(ref(this.db, `users/${userId}/color`), color);
+            return true;
+        } catch (error) {
+            console.error('Ошибка обновления цвета пользователя:', error);
+            return false;
+        }
+    }
+
     // === МЕТОДЫ ДЛЯ ПРИВЯЗКИ СОТРУДНИКОВ К ПОЛЬЗОВАТЕЛЯМ ===
 
     async attachEmployeeToUser(userId, employeeName) {
