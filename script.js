@@ -308,21 +308,17 @@ class ScheduleApp {
         
         this.scheduleData = {};
         
-        // Определяем количество дней в месяце из названия листа
-        const daysInMonth = this.getDaysInMonth(sheetName);
-        console.log(`Количество дней в месяце ${sheetName}: ${daysInMonth}`);
+        // Ищем строку с датами - со второго столбца должны идти числа
+        const dateRowIndex = this.findDateRowSimple(data);
+        console.log('Найдена строка с датами:', dateRowIndex);
         
-        // Ищем строку с датами - теперь учитываем количество дней в месяце
-        const dateRowInfo = this.findDateRowSequential(data, daysInMonth);
-        console.log('Найдена строка с датами:', dateRowInfo);
-        
-        if (!dateRowInfo) {
+        if (dateRowIndex === -1) {
             console.warn('Не удалось найти строку с датами');
             return;
         }
         
-        const { rowIndex: dateRowIndex, startCol: dateStartCol } = dateRowInfo;
-        const dates = this.extractSequentialDates(data[dateRowIndex], dateStartCol, daysInMonth);
+        const dateRow = data[dateRowIndex];
+        const dates = this.extractDatesSimple(dateRow);
         console.log('Извлеченные даты:', dates);
         
         if (dates.length === 0) {
@@ -330,21 +326,21 @@ class ScheduleApp {
             return;
         }
         
-        // Ищем строки с сотрудниками - начинаем со следующей строки после дат
+        // Все строки ниже - сотрудники и их смены
         for (let i = dateRowIndex + 1; i < data.length; i++) {
             const row = data[i];
             if (!row || row.length === 0) continue;
             
-            // Имя сотрудника должно быть в колонке перед датами
-            const employeeName = this.extractEmployeeName(row[dateStartCol - 1]); 
+            // Первый столбец - имя сотрудника
+            const employeeName = this.extractEmployeeName(row[0]); 
             if (!employeeName) continue;
             
             console.log(`Обрабатываем сотрудника: "${employeeName}"`);
             
             const shifts = [];
-            // Сопоставляем смены с датами, начиная с колонки где начинаются даты
-            for (let j = dateStartCol; j < row.length; j++) {
-                const dateIndex = j - dateStartCol;
+            // Сопоставляем смены с датами, начиная со второго столбца
+            for (let j = 1; j < row.length; j++) {
+                const dateIndex = j - 1;
                 if (dateIndex < dates.length) {
                     const shiftValue = row[j];
                     if (shiftValue && shiftValue.trim()) {
@@ -377,99 +373,52 @@ class ScheduleApp {
         }
     }
 
-    getDaysInMonth(sheetName) {
-        const [monthName, yearStr] = sheetName.split(' ');
-        const year = 2000 + parseInt(yearStr);
-        
-        const months = {
-            'Январь': 0, 'Февраль': 1, 'Март': 2, 'Апрель': 3, 'Май': 4, 'Июнь': 5,
-            'Июль': 6, 'Август': 7, 'Сентябрь': 8, 'Октябрь': 9, 'Ноябрь': 10, 'Декабрь': 11
-        };
-        
-        const monthIndex = months[monthName];
-        if (monthIndex === undefined) return 31; // По умолчанию 31 день
-        
-        // Определяем количество дней в месяце
-        if (monthIndex === 1) { // Февраль
-            // Проверяем високосный год
-            const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
-            return isLeapYear ? 29 : 28;
-        } else if ([3, 5, 8, 10].includes(monthIndex)) { // Апрель, Июнь, Сентябрь, Ноябрь
-            return 30;
-        } else {
-            return 31;
-        }
-    }
-
-    findDateRowSequential(data, daysInMonth) {
-        // Ищем строку, которая содержит последовательные числа 1,2,3... до дней в месяце
+    findDateRowSimple(data) {
+        // Ищем строку, где со второго столбца идут числа (даты)
         for (let rowIndex = 0; rowIndex < Math.min(10, data.length); rowIndex++) {
             const row = data[rowIndex];
-            if (!row || row.length < 5) continue;
+            if (!row || row.length < 30) continue; // Минимум 30 столбцов
             
             console.log(`Проверяем строку ${rowIndex}:`, row);
             
-            // Пробуем разные стартовые колонки
-            for (let startCol = 0; startCol < Math.min(10, row.length); startCol++) {
-                // Проверяем есть ли последовательность чисел начиная с этой колонки
-                const sequence = this.checkNumberSequence(row, startCol, daysInMonth);
-                if (sequence.length >= Math.min(5, daysInMonth)) { // Минимум 5 чисел или дней в месяце
-                    console.log(`Найдена последовательность чисел в строке ${rowIndex}, колонка ${startCol}:`, sequence);
-                    return { rowIndex, startCol };
+            let numberCount = 0;
+            // Проверяем столбцы со 2 по 31 (30 столбцов)
+            for (let colIndex = 1; colIndex < Math.min(32, row.length); colIndex++) {
+                const cellValue = row[colIndex];
+                const number = this.extractDateNumber(cellValue);
+                
+                if (number !== null && number >= 1 && number <= 31) {
+                    numberCount++;
                 }
             }
-        }
-        
-        console.log('Не найдено строк с последовательными числами');
-        return null;
-    }
-
-    checkNumberSequence(row, startCol, daysInMonth) {
-        const sequence = [];
-        let expectedNumber = 1;
-        let maxExpected = daysInMonth;
-        
-        for (let i = startCol; i < Math.min(startCol + maxExpected + 5, row.length); i++) {
-            const cellValue = row[i];
-            const number = this.extractDateNumber(cellValue);
             
-            if (number === expectedNumber && expectedNumber <= maxExpected) {
-                sequence.push(number);
-                expectedNumber++;
-            } else if (number !== null && number <= maxExpected) {
-                // Если число есть, но не последовательное, но в пределах месяца
-                sequence.push(number);
-                expectedNumber = number + 1;
-            } else if (number === null && expectedNumber <= maxExpected) {
-                // Если ячейка пустая, но мы еще в пределах месяца, продолжаем
-                expectedNumber++;
-            } else {
-                break;
+            // Если найдено достаточно чисел (хотя бы 25 из 30)
+            if (numberCount >= 25) {
+                console.log(`Найдена строка с датами: строка ${rowIndex}, чисел: ${numberCount}`);
+                return rowIndex;
             }
         }
         
-        return sequence;
+        console.log('Не найдено строк с датами');
+        return -1;
     }
 
-    extractSequentialDates(row, startCol, daysInMonth) {
+    extractDatesSimple(dateRow) {
         const dates = [];
-        let currentNumber = 1;
-        let maxNumber = daysInMonth;
         
-        for (let i = startCol; i < Math.min(startCol + maxNumber + 5, row.length); i++) {
-            if (currentNumber > maxNumber) break;
-            
-            const cellValue = row[i];
+        // Извлекаем даты со второго столбца
+        for (let colIndex = 1; colIndex < Math.min(32, dateRow.length); colIndex++) {
+            const cellValue = dateRow[colIndex];
             const number = this.extractDateNumber(cellValue);
             
-            // Если находим число, добавляем его в даты
-            if (number !== null && number <= maxNumber) {
+            if (number !== null && number >= 1 && number <= 31) {
                 dates.push(number);
-                currentNumber = number + 1;
             } else {
-                // Если ячейка пустая, но мы еще в пределах месяца, добавляем ожидаемое число
-                dates.push(currentNumber);
-                currentNumber++;
+                // Если ячейка пустая или не число, но мы еще в пределах 31, добавляем ожидаемое число
+                const expectedNumber = dates.length + 1;
+                if (expectedNumber <= 31) {
+                    dates.push(expectedNumber);
+                }
             }
         }
         
