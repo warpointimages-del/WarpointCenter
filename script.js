@@ -375,10 +375,10 @@ processCSVData(data, sheetName) {
 }
 
 findCorrectDateRow(data) {
-    // ПРОВЕРЯЕМ ВСЕ СТРОКИ С НАЧАЛА БЕЗ ОГРАНИЧЕНИЙ!
+    // ПРОВЕРЯЕМ ВСЕ СТРОКИ С НАЧАЛА БЕЗ ЛЮБЫХ ОГРАНИЧЕНИЙ!
     for (let rowIndex = 0; rowIndex < Math.min(10, data.length); rowIndex++) {
         const row = data[rowIndex];
-        if (!row) {
+        if (!row || row.length === 0) {
             console.log(`Строка ${rowIndex}: пропускаем - пустая строка`);
             continue;
         }
@@ -414,14 +414,21 @@ findSequenceAnywhere(row) {
             let expectedNumber = 2;
             
             // Проверяем следующие числа
-            for (let nextCol = colIndex + 1; nextCol < Math.min(colIndex + 28, row.length); nextCol++) {
+            for (let nextCol = colIndex + 1; nextCol < Math.min(colIndex + 31, row.length); nextCol++) {
                 const nextNumber = this.extractDateNumber(row[nextCol]);
                 
                 if (nextNumber === expectedNumber) {
                     sequence.push(nextNumber);
                     expectedNumber++;
-                } else {
+                    console.log(`Добавлено число ${nextNumber} в последовательность`);
+                } else if (nextNumber !== null) {
+                    // Если нашли другое число - прерываем
+                    console.log(`Найдено другое число ${nextNumber}, ожидали ${expectedNumber} - прерываем`);
                     break;
+                } else {
+                    // Если пустая ячейка - продолжаем (может быть пропуск)
+                    console.log(`Пустая ячейка в столбце ${nextCol} - продолжаем`);
+                    expectedNumber++;
                 }
             }
             break; // Нашли последовательность, выходим
