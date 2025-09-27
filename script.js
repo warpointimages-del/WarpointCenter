@@ -301,6 +301,12 @@ processCSVData(data, sheetName) {
     console.log('=== ОБРАБОТКА CSV ДАННЫХ ===');
     console.log('Все данные:', data);
     
+    // ОТЛАДКА: покажем все строки
+    console.log('=== ВСЕ СТРОКИ ДЛЯ ОТЛАДКИ ===');
+    for (let i = 0; i < data.length; i++) {
+        console.log(`Строка ${i} (${data[i]?.length} колонок):`, data[i]);
+    }
+    
     if (!data || data.length === 0) {
         console.warn('Нет CSV данных');
         return;
@@ -308,7 +314,7 @@ processCSVData(data, sheetName) {
     
     this.scheduleData = {};
     
-    // Ищем строку с правильной последовательностью дат (1,2,3,4,...,28)
+    // Ищем строку с числами 1,2,3... - УБИРАЕМ ПРОВЕРКУ НА КОЛИЧЕСТВО СТОЛБЦОВ!
     const dateRowIndex = this.findCorrectDateRow(data);
     console.log('Найдена строка с датами:', dateRowIndex);
     
@@ -369,22 +375,22 @@ processCSVData(data, sheetName) {
 }
 
 findCorrectDateRow(data) {
-    // ПРОВЕРЯЕМ ВСЕ СТРОКИ С НАЧАЛА!
+    // ПРОВЕРЯЕМ ВСЕ СТРОКИ С НАЧАЛА БЕЗ ОГРАНИЧЕНИЙ!
     for (let rowIndex = 0; rowIndex < Math.min(10, data.length); rowIndex++) {
         const row = data[rowIndex];
-        if (!row || row.length < 28) {
-            console.log(`Строка ${rowIndex}: пропускаем - мало столбцов`);
+        if (!row) {
+            console.log(`Строка ${rowIndex}: пропускаем - пустая строка`);
             continue;
         }
         
-        console.log(`=== ПРОВЕРЯЕМ СТРОКУ ${rowIndex}:`, row);
+        console.log(`=== ПРОВЕРЯЕМ СТРОКУ ${rowIndex} (${row.length} колонок):`, row);
         
-        // Ищем последовательность 1,2,3,4,...,28
-        const sequence = this.findSequenceFromStart(row);
+        // Ищем последовательность 1,2,3,4,... в ЛЮБОМ месте строки
+        const sequence = this.findSequenceAnywhere(row);
         console.log(`Найдена последовательность в строке ${rowIndex}:`, sequence);
         
-        // Если нашли хорошую последовательность (хотя бы до 20)
-        if (sequence.length >= 20) {
+        // Если нашли хорошую последовательность (хотя бы до 10)
+        if (sequence.length >= 10) {
             console.log(`✅ НАЙДЕНА ПРАВИЛЬНАЯ СТРОКА С ДАТАМИ: строка ${rowIndex}`);
             return rowIndex;
         }
@@ -394,39 +400,31 @@ findCorrectDateRow(data) {
     return -1;
 }
 
-findSequenceFromStart(row) {
+findSequenceAnywhere(row) {
     const sequence = [];
-    let expectedNumber = 1;
-    let startCol = -1;
     
-    // Находим столбец, где начинается число 1
+    // Ищем последовательность чисел в ЛЮБОМ месте строки
     for (let colIndex = 0; colIndex < row.length; colIndex++) {
         const number = this.extractDateNumber(row[colIndex]);
-        if (number === 1) {
-            startCol = colIndex;
-            console.log(`Найдено число 1 в столбце ${colIndex}`);
-            break;
-        }
-    }
-    
-    if (startCol === -1) {
-        console.log('Не найдено число 1 в строке');
-        return [];
-    }
-    
-    // Проверяем последовательность начиная с найденного столбца ДО 28
-    for (let colIndex = startCol; colIndex < Math.min(startCol + 28, row.length); colIndex++) {
-        const number = this.extractDateNumber(row[colIndex]);
         
-        if (number === expectedNumber) {
-            sequence.push(number);
-            expectedNumber++;
-        } else if (number !== null) {
-            // Если число есть, но не то которое ожидали - прерываем
-            break;
-        } else {
-            // Если ячейка пустая - тоже прерываем
-            break;
+        if (number === 1) {
+            // Нашли начало последовательности
+            console.log(`Найдено число 1 в столбце ${colIndex}`);
+            sequence.push(1);
+            let expectedNumber = 2;
+            
+            // Проверяем следующие числа
+            for (let nextCol = colIndex + 1; nextCol < Math.min(colIndex + 28, row.length); nextCol++) {
+                const nextNumber = this.extractDateNumber(row[nextCol]);
+                
+                if (nextNumber === expectedNumber) {
+                    sequence.push(nextNumber);
+                    expectedNumber++;
+                } else {
+                    break;
+                }
+            }
+            break; // Нашли последовательность, выходим
         }
     }
     
@@ -435,32 +433,22 @@ findSequenceFromStart(row) {
 
 extractCorrectDates(dateRow) {
     const dates = [];
-    let startCol = -1;
     
-    // Находим столбец с числом 1
+    // Находим начало последовательности в строке
     for (let colIndex = 0; colIndex < dateRow.length; colIndex++) {
         const number = this.extractDateNumber(dateRow[colIndex]);
         if (number === 1) {
-            startCol = colIndex;
-            break;
-        }
-    }
-    
-    if (startCol === -1) {
-        console.log('Не найдено число 1 в строке с датами');
-        return [];
-    }
-    
-    // Извлекаем даты начиная с найденного столбца ДО 28
-    let expectedNumber = 1;
-    for (let colIndex = startCol; colIndex < Math.min(startCol + 28, dateRow.length); colIndex++) {
-        const number = this.extractDateNumber(dateRow[colIndex]);
-        
-        if (number === expectedNumber) {
-            dates.push(number);
-            expectedNumber++;
-        } else {
-            // Прерываем если последовательность нарушена
+            // Извлекаем последовательность начиная с этого столбца
+            let expectedNumber = 1;
+            for (let j = colIndex; j < Math.min(colIndex + 28, dateRow.length); j++) {
+                const num = this.extractDateNumber(dateRow[j]);
+                if (num === expectedNumber) {
+                    dates.push(num);
+                    expectedNumber++;
+                } else {
+                    break;
+                }
+            }
             break;
         }
     }
