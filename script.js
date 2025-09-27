@@ -136,7 +136,6 @@ class ScheduleApp {
         
         const availableMonths = [];
         
-        // Добавляем месяцы за предыдущий и текущий годы
         for (let year of [previousYear, currentYear]) {
             for (let month of months) {
                 availableMonths.push(`${month} ${year}`);
@@ -152,10 +151,8 @@ class ScheduleApp {
             console.log('Текущий месяц для поиска:', currentMonthSheet);
             console.log('Доступные листы:', this.availableMonths);
             
-            // Пробуем загрузить текущий месяц
             let loaded = await this.loadSpecificMonthData(currentMonthSheet);
             
-            // Если не удалось, пробуем найти подходящий лист
             if (!loaded && this.availableMonths.length > 0) {
                 for (let month of this.availableMonths) {
                     console.log('Пробуем загрузить:', month);
@@ -186,14 +183,13 @@ class ScheduleApp {
             'Июль': 6, 'Август': 7, 'Сентябрь': 8, 'Октябрь': 9, 'Ноябрь': 10, 'Декабрь': 11
         };
         
-        return new Date(2000 + parseInt(year), months[monthName], 15); // Середина месяца
+        return new Date(2000 + parseInt(year), months[monthName], 15);
     }
 
     async loadSpecificMonthData(sheetName) {
         try {
             console.log(`=== ЗАГРУЗКА ЛИСТА: "${sheetName}" ===`);
             
-            // Пробуем CSV метод
             let data = await this.loadViaCSV(sheetName);
             if (data && data.length > 0) {
                 console.log('CSV данные получены, строк:', data.length);
@@ -201,7 +197,6 @@ class ScheduleApp {
                 return true;
             }
             
-            // Пробуем Gviz метод
             data = await this.loadViaGviz(sheetName);
             if (data) {
                 console.log('Gviz данные получены');
@@ -239,46 +234,42 @@ class ScheduleApp {
         }
     }
 
-parseCSV(csvText) {
-    const lines = csvText.split('\n').filter(line => line.trim());
-    const result = [];
-    
-    for (let line of lines) {
-        // УЛУЧШЕННЫЙ ПАРСИНГ CSV - учитываем что даты могут быть в первой строке
-        const cells = [];
-        let currentCell = '';
-        let inQuotes = false;
+    parseCSV(csvText) {
+        const lines = csvText.split('\n').filter(line => line.trim());
+        const result = [];
         
-        for (let i = 0; i < line.length; i++) {
-            const char = line[i];
+        for (let line of lines) {
+            const cells = [];
+            let currentCell = '';
+            let inQuotes = false;
             
-            if (char === '"') {
-                inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-                cells.push(currentCell.trim());
-                currentCell = '';
-            } else {
-                currentCell += char;
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    cells.push(currentCell.trim());
+                    currentCell = '';
+                } else {
+                    currentCell += char;
+                }
             }
+            
+            cells.push(currentCell.trim());
+            
+            const cleanedCells = cells.map(cell => {
+                let cleaned = cell.replace(/^"|"$/g, '');
+                cleaned = cleaned.trim();
+                return cleaned;
+            });
+            
+            result.push(cleanedCells);
         }
         
-        cells.push(currentCell.trim());
-        
-        // Убираем окружающие кавычки и очищаем ячейки
-        const cleanedCells = cells.map(cell => {
-            // Убираем кавычки в начале и конце
-            let cleaned = cell.replace(/^"|"$/g, '');
-            // Убираем лишние пробелы
-            cleaned = cleaned.trim();
-            return cleaned;
-        });
-        
-        result.push(cleanedCells);
+        console.log('Парсинг CSV результат:', result);
+        return result;
     }
-    
-    console.log('Парсинг CSV результат:', result);
-    return result;
-}
 
     async loadViaGviz(sheetName) {
         try {
@@ -307,199 +298,134 @@ parseCSV(csvText) {
         }
     }
 
-processCSVData(data, sheetName) {
-    console.log('=== ОБРАБОТКА CSV ДАННЫХ ===');
-    console.log('Все данные:', data);
-    
-    // ОТЛАДКА: покажем все строки
-    console.log('=== ВСЕ СТРОКИ ДЛЯ ОТЛАДКИ ===');
-    for (let i = 0; i < data.length; i++) {
-        console.log(`Строка ${i} (${data[i]?.length} колонок):`, data[i]);
-    }
-    
-    if (!data || data.length === 0) {
-        console.warn('Нет CSV данных');
-        return;
-    }
-    
-    this.scheduleData = {};
-    
-    // Ищем строку с числами 1,2,3... - УБИРАЕМ ПРОВЕРКУ НА КОЛИЧЕСТВО СТОЛБЦОВ!
-    const dateRowIndex = this.findCorrectDateRow(data);
-    console.log('Найдена строка с датами:', dateRowIndex);
-    
-    if (dateRowIndex === -1) {
-        console.warn('Не удалось найти строку с датами');
-        return;
-    }
-    
-    const dateRow = data[dateRowIndex];
-    const dates = this.extractCorrectDates(dateRow);
-    console.log('Извлеченные даты:', dates);
-    
-    if (dates.length === 0) {
-        console.warn('Не найдено дат в строке');
-        return;
-    }
-    
-    // Все строки ниже - сотрудники
-    for (let i = dateRowIndex + 1; i < data.length; i++) {
-        const row = data[i];
-        if (!row || row.length === 0) continue;
+    processCSVData(data, sheetName) {
+        console.log('=== ОБРАБОТКА CSV ДАННЫХ ===');
+        console.log('Все данные:', data);
         
-        const employeeName = this.extractEmployeeName(row[0]); 
-        if (!employeeName) continue;
+        if (!data || data.length === 0) {
+            console.warn('Нет CSV данных');
+            return;
+        }
         
-        console.log(`Обрабатываем сотрудника: "${employeeName}"`);
+        this.scheduleData = {};
         
-        const shifts = [];
-        for (let j = 1; j < row.length; j++) {
-            const dateIndex = j - 1;
-            if (dateIndex < dates.length) {
-                const shiftValue = row[j];
-                if (shiftValue && shiftValue.trim()) {
-                    const hours = this.parseHours(shiftValue);
-                    if (hours !== null && hours >= 1) {
-                        shifts.push({
-                            date: dates[dateIndex],
-                            hours: hours,
-                            month: sheetName
-                        });
-                        console.log(`Найдена смена: ${dates[dateIndex]} число - ${hours}ч`);
+        const dateRowIndex = this.findCorrectDateRow(data);
+        console.log('Найдена строка с датами:', dateRowIndex);
+        
+        if (dateRowIndex === -1) {
+            console.warn('Не удалось найти строку с датами');
+            return;
+        }
+        
+        const dateRow = data[dateRowIndex];
+        const dates = this.extractCorrectDates(dateRow);
+        console.log('Извлеченные даты:', dates);
+        
+        if (dates.length === 0) {
+            console.warn('Не найдено дат в строке');
+            return;
+        }
+        
+        for (let i = dateRowIndex + 1; i < data.length; i++) {
+            const row = data[i];
+            if (!row || row.length === 0) continue;
+            
+            const employeeName = this.extractEmployeeName(row[0]); 
+            if (!employeeName) continue;
+            
+            console.log(`Обрабатываем сотрудника: "${employeeName}"`);
+            
+            const shifts = [];
+            for (let j = 1; j < row.length; j++) {
+                const dateIndex = j - 1;
+                if (dateIndex < dates.length) {
+                    const shiftValue = row[j];
+                    if (shiftValue && shiftValue.trim()) {
+                        const hours = this.parseHours(shiftValue);
+                        if (hours !== null && hours >= 1) {
+                            shifts.push({
+                                date: dates[dateIndex],
+                                hours: hours,
+                                month: sheetName
+                            });
+                            console.log(`Найдена смена: ${dates[dateIndex]} число - ${hours}ч`);
+                        }
                     }
                 }
             }
-        }
-        
-        if (shifts.length > 0) {
-            this.scheduleData[employeeName] = shifts;
-        }
-    }
-    
-    console.log('Итоговые данные графика:', this.scheduleData);
-    
-    if (Object.keys(this.scheduleData).length > 0) {
-        document.getElementById('loading').classList.add('hidden');
-        document.getElementById('main-content').classList.remove('hidden');
-    }
-}
-
-findCorrectDateRow(data) {
-    // ПРОВЕРЯЕМ ВСЕ СТРОКИ С НАЧАЛА БЕЗ ЛЮБЫХ ОГРАНИЧЕНИЙ!
-    for (let rowIndex = 0; rowIndex < Math.min(10, data.length); rowIndex++) {
-        const row = data[rowIndex];
-        if (!row || row.length === 0) {
-            console.log(`Строка ${rowIndex}: пропускаем - пустая строка`);
-            continue;
-        }
-        
-        console.log(`=== ПРОВЕРЯЕМ СТРОКУ ${rowIndex} (${row.length} колонок):`, row);
-        
-        // Ищем последовательность 1,2,3,4,... в ЛЮБОМ месте строки
-        const sequence = this.findSequenceAnywhere(row);
-        console.log(`Найдена последовательность в строке ${rowIndex}:`, sequence);
-        
-        // Если нашли хорошую последовательность (хотя бы до 10)
-        if (sequence.length >= 10) {
-            console.log(`✅ НАЙДЕНА ПРАВИЛЬНАЯ СТРОКА С ДАТАМИ: строка ${rowIndex}`);
-            return rowIndex;
-        }
-    }
-    
-    console.log('❌ Не найдено строк с правильной последовательностью дат');
-    return -1;
-}
-
-findSequenceAnywhere(row) {
-    const sequence = [];
-    
-    // Ищем последовательность чисел в ЛЮБОМ месте строки
-    for (let colIndex = 0; colIndex < row.length; colIndex++) {
-        const number = this.extractDateNumber(row[colIndex]);
-        
-        if (number === 1) {
-            // Нашли начало последовательности
-            console.log(`Найдено число 1 в столбце ${colIndex}`);
-            sequence.push(1);
-            let expectedNumber = 2;
             
-            // Проверяем следующие числа
-            for (let nextCol = colIndex + 1; nextCol < Math.min(colIndex + 31, row.length); nextCol++) {
-                const nextNumber = this.extractDateNumber(row[nextCol]);
-                
-                if (nextNumber === expectedNumber) {
-                    sequence.push(nextNumber);
-                    expectedNumber++;
-                    console.log(`Добавлено число ${nextNumber} в последовательность`);
-                } else if (nextNumber !== null) {
-                    // Если нашли другое число - прерываем
-                    console.log(`Найдено другое число ${nextNumber}, ожидали ${expectedNumber} - прерываем`);
-                    break;
-                } else {
-                    // Если пустая ячейка - продолжаем (может быть пропуск)
-                    console.log(`Пустая ячейка в столбце ${nextCol} - продолжаем`);
-                    expectedNumber++;
-                }
+            if (shifts.length > 0) {
+                this.scheduleData[employeeName] = shifts;
             }
-            break; // Нашли последовательность, выходим
+        }
+        
+        console.log('Итоговые данные графика:', this.scheduleData);
+        
+        if (Object.keys(this.scheduleData).length > 0) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
         }
     }
-    
-    return sequence;
-}
 
-extractCorrectDates(dateRow) {
-    const dates = [];
-    
-    // Находим начало последовательности в строке
-    for (let colIndex = 0; colIndex < dateRow.length; colIndex++) {
-        const number = this.extractDateNumber(dateRow[colIndex]);
-        if (number === 1) {
-            // Извлекаем последовательность начиная с этого столбца
-            let expectedNumber = 1;
-            for (let j = colIndex; j < Math.min(colIndex + 28, dateRow.length); j++) {
-                const num = this.extractDateNumber(dateRow[j]);
-                if (num === expectedNumber) {
-                    dates.push(num);
-                    expectedNumber++;
-                } else {
-                    break;
+    findCorrectDateRow(data) {
+        for (let rowIndex = 0; rowIndex < data.length; rowIndex++) {
+            const row = data[rowIndex];
+            if (!row) continue;
+            
+            console.log(`=== ПРОВЕРЯЕМ СТРОКУ ${rowIndex}:`, row);
+            
+            for (let colIndex = 0; colIndex < row.length; colIndex++) {
+                const number = this.extractDateNumber(row[colIndex]);
+                if (number === 1) {
+                    console.log(`✅ НАЙДЕНО ЧИСЛО 1 в строке ${rowIndex}, столбец ${colIndex}`);
+                    return rowIndex;
                 }
             }
-            break;
         }
+        
+        console.log('❌ Не найдено строк с числом 1');
+        return -1;
     }
-    
-    return dates;
-}
 
-extractDateNumber(value) {
-    if (!value) return null;
-    
-    const str = value.toString().trim();
-    
-    // Прямое число
-    const num = parseInt(str);
-    if (!isNaN(num) && num >= 1 && num <= 31) {
-        return num;
+    extractCorrectDates(dateRow) {
+        const dates = [];
+        
+        for (let colIndex = 0; colIndex < dateRow.length; colIndex++) {
+            const number = this.extractDateNumber(dateRow[colIndex]);
+            if (number !== null && number >= 1 && number <= 31) {
+                dates.push(number);
+            }
+        }
+        
+        const uniqueDates = [...new Set(dates)].sort((a, b) => a - b);
+        console.log('Уникальные даты:', uniqueDates);
+        
+        return uniqueDates;
     }
-    
-    return null;
-}
+
+    extractDateNumber(value) {
+        if (!value) return null;
+        
+        const str = value.toString().trim();
+        const num = parseInt(str);
+        if (!isNaN(num) && num >= 1 && num <= 31) {
+            return num;
+        }
+        
+        return null;
+    }
 
     extractEmployeeName(value) {
         if (!value) return null;
         
         const str = value.toString().trim();
         
-        // Пропускаем пустые строки и явно не-имена
         if (!str || str === '' || str === 'ФИО' || str === 'Сотрудник' || 
             str === '- Управляющий:' || str.includes('Смена') ||
             this.extractDateNumber(str) !== null) {
             return null;
         }
         
-        // Убираем лишние пробелы и возвращаем
         return str.replace(/\s+/g, ' ').trim();
     }
 
@@ -508,19 +434,16 @@ extractDateNumber(value) {
         
         const str = value.toString().trim();
         
-        // Прямое число
         const num = parseFloat(str);
         if (!isNaN(num)) {
             return num;
         }
         
-        // Число с запятой
         const numWithComma = parseFloat(str.replace(',', '.'));
         if (!isNaN(numWithComma)) {
             return numWithComma;
         }
         
-        // Формат "8ч", "8 часов"
         const hourMatch = str.match(/(\d+[,.]?\d*)\s*(ч|час|часов)?/);
         if (hourMatch) {
             const hourNum = parseFloat(hourMatch[1].replace(',', '.'));
@@ -529,7 +452,6 @@ extractDateNumber(value) {
             }
         }
         
-        // Формат времени "10:30 - 20:00"
         const timeMatch = str.match(/(\d+):(\d+)\s*-\s*(\d+):(\d+)/);
         if (timeMatch) {
             const startHours = parseInt(timeMatch[1]);
@@ -539,7 +461,7 @@ extractDateNumber(value) {
             
             const totalMinutes = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
             if (totalMinutes > 0) {
-                return totalMinutes / 60; // Конвертируем минуты в часы
+                return totalMinutes / 60;
             }
         }
         
@@ -557,7 +479,6 @@ extractDateNumber(value) {
         const rows = data.table.rows;
         const dates = [];
         
-        // Получаем даты из первой строки
         if (rows[0] && rows[0].c) {
             for (let i = 1; i < rows[0].c.length; i++) {
                 const dateCell = rows[0].c[i];
@@ -574,7 +495,6 @@ extractDateNumber(value) {
         
         this.scheduleData = {};
         
-        // Обрабатываем строки с сотрудниками
         for (let i = 1; i < rows.length; i++) {
             const row = rows[i];
             if (!row.c || !row.c[0] || row.c[0].v === null) continue;
@@ -622,7 +542,6 @@ extractDateNumber(value) {
         return `${months[currentMonth]} ${currentYear.toString().slice(2)}`;
     }
 
-    // Остальные методы без изменений...
     initializeEventListeners() {
         document.getElementById('prev-week').addEventListener('click', () => this.changeWeek(-1));
         document.getElementById('next-week').addEventListener('click', () => this.changeWeek(1));
@@ -750,9 +669,7 @@ extractDateNumber(value) {
                 option.value = month;
                 option.textContent = month;
                 
-                // Проверяем, есть ли данные для этого месяца
                 const hasData = Object.keys(this.scheduleData).length > 0;
-                
                 if (hasData) {
                     option.style.fontWeight = 'bold';
                 }
@@ -776,7 +693,6 @@ extractDateNumber(value) {
         
         let html = '<div class="calendar-grid">';
         
-        // Заголовки дней недели
         html += '<div class="week-header"></div>';
         for (let i = 0; i < 7; i++) {
             const day = new Date(weekStart);
@@ -784,7 +700,6 @@ extractDateNumber(value) {
             html += `<div class="week-header">${this.getDayName(day)}<br>${day.getDate()}</div>`;
         }
         
-        // Строки сотрудников
         employeesToShow.forEach(employee => {
             html += `<div class="week-time-cell">${employee}</div>`;
             
@@ -823,19 +738,16 @@ extractDateNumber(value) {
         
         let html = '<div class="calendar-grid">';
         
-        // Заголовки дней недели
         const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
         dayNames.forEach(day => {
             html += `<div class="month-header">${day}</div>`;
         });
         
-        // Пустые ячейки перед первым днем месяца
         const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
         for (let i = 0; i < startDay; i++) {
             html += `<div class="month-day other-month"></div>`;
         }
         
-        // Дни месяца
         const today = new Date();
         for (let day = 1; day <= lastDay.getDate(); day++) {
             const isToday = today.getDate() === day && 
