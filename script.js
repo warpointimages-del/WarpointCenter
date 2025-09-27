@@ -285,25 +285,64 @@ class ScheduleApp {
         }
     }
 
-    processCSVData(data, sheetName) {
-        console.log('=== ОБРАБОТКА CSV ДАННЫХ ===');
-        console.log('Все данные:', data);
+processCSVData(data, sheetName) {
+    console.log('=== ОБРАБОТКА CSV ДАННЫХ ===');
+    console.log('Все данные:', data);
+    
+    // ОТЛАДКА: покажем все строки
+    console.log('=== ВСЕ СТРОКИ ДЛЯ ОТЛАДКИ ===');
+    for (let i = 0; i < data.length; i++) {
+        console.log(`Строка ${i} (${data[i]?.length} колонок):`, data[i]);
+    }
+    
+    if (!data || data.length === 0) {
+        console.warn('Нет CSV данных');
+        return;
+    }
+    
+    this.scheduleData = {};
+    
+    // ПЕРВЫЙ ВАРИАНТ: проверяем строку 3 (индекс 3) - там могут быть даты в одной ячейке
+    let dateRowIndex = -1;
+    let dates = [];
+    
+    // Проверяем строку 3 - она может содержать даты в формате "текст,1,2,3,4,..."
+    if (data[3] && data[3].length > 0) {
+        const thirdRow = data[3];
+        console.log('=== ПРОВЕРЯЕМ СТРОКУ 3 ОСОБО ===:', thirdRow);
         
-        // ОТЛАДКА: покажем все строки
-        console.log('=== ВСЕ СТРОКИ ДЛЯ ОТЛАДКИ ===');
-        for (let i = 0; i < data.length; i++) {
-            console.log(`Строка ${i} (${data[i]?.length} колонок):`, data[i]);
+        // Если в первой ячейке есть запятые и числа
+        if (thirdRow[0] && thirdRow[0].includes(',')) {
+            const parts = thirdRow[0].split(',');
+            console.log('Части строки 3:', parts);
+            
+            // Ищем числа в этих частях
+            const numbers = [];
+            for (let part of parts) {
+                const num = this.extractDateNumber(part.trim());
+                if (num !== null) {
+                    numbers.push(num);
+                }
+            }
+            
+            console.log('Найдены числа в строке 3:', numbers);
+            
+            // Если нашли последовательность чисел
+            if (numbers.length >= 10) {
+                dateRowIndex = 3;
+                dates = numbers.filter((num, index, arr) => {
+                    // Фильтруем чтобы были только уникальные последовательные числа
+                    return index === 0 || num === arr[index - 1] + 1;
+                });
+                console.log('✅ НАЙДЕНЫ ДАТЫ В СТРОКЕ 3:', dates);
+            }
         }
-        
-        if (!data || data.length === 0) {
-            console.warn('Нет CSV данных');
-            return;
-        }
-        
-        this.scheduleData = {};
-        
-        const dateRowIndex = this.findCorrectDateRow(data);
-        console.log('Найдена строка с датами:', dateRowIndex);
+    }
+    
+    // ВТОРОЙ ВАРИАНТ: если не нашли в строке 3, ищем обычным способом
+    if (dateRowIndex === -1) {
+        dateRowIndex = this.findCorrectDateRow(data);
+        console.log('Найдена строка с датами обычным поиском:', dateRowIndex);
         
         if (dateRowIndex === -1) {
             console.warn('Не удалось найти строку с датами');
@@ -311,103 +350,122 @@ class ScheduleApp {
         }
         
         const dateRow = data[dateRowIndex];
-        const dates = this.extractCorrectDates(dateRow);
-        console.log('Извлеченные даты:', dates);
+        dates = this.extractCorrectDates(dateRow);
+    }
+    
+    console.log('Извлеченные даты:', dates);
+    
+    if (dates.length === 0) {
+        console.warn('Не найдено дат в строке');
+        return;
+    }
+    
+    // Все строки ниже - сотрудники
+    const startRow = dateRowIndex + 1;
+    for (let i = startRow; i < data.length; i++) {
+        const row = data[i];
+        if (!row || row.length === 0) continue;
         
-        if (dates.length === 0) {
-            console.warn('Не найдено дат в строке');
-            return;
-        }
+        const employeeName = this.extractEmployeeName(row[0]); 
+        if (!employeeName) continue;
         
-        for (let i = dateRowIndex + 1; i < data.length; i++) {
-            const row = data[i];
-            if (!row || row.length === 0) continue;
-            
-            const employeeName = this.extractEmployeeName(row[0]); 
-            if (!employeeName) continue;
-            
-            console.log(`Обрабатываем сотрудника: "${employeeName}"`);
-            
-            const shifts = [];
-            for (let j = 1; j < row.length; j++) {
-                const dateIndex = j - 1;
-                if (dateIndex < dates.length) {
-                    const shiftValue = row[j];
-                    if (shiftValue && shiftValue.trim()) {
-                        const hours = this.parseHours(shiftValue);
-                        if (hours !== null && hours >= 1) {
-                            shifts.push({
-                                date: dates[dateIndex],
-                                hours: hours,
-                                month: sheetName
-                            });
-                            console.log(`Найдена смена: ${dates[dateIndex]} число - ${hours}ч`);
-                        }
+        console.log(`Обрабатываем сотрудника: "${employeeName}"`);
+        
+        const shifts = [];
+        for (let j = 1; j < row.length; j++) {
+            const dateIndex = j - 1;
+            if (dateIndex < dates.length) {
+                const shiftValue = row[j];
+                if (shiftValue && shiftValue.trim()) {
+                    const hours = this.parseHours(shiftValue);
+                    if (hours !== null && hours >= 1) {
+                        shifts.push({
+                            date: dates[dateIndex],
+                            hours: hours,
+                            month: sheetName
+                        });
+                        console.log(`Найдена смена: ${dates[dateIndex]} число - ${hours}ч`);
                     }
                 }
             }
-            
-            if (shifts.length > 0) {
-                this.scheduleData[employeeName] = shifts;
-            }
         }
         
-        console.log('Итоговые данные графика:', this.scheduleData);
-        
-        if (Object.keys(this.scheduleData).length > 0) {
-            document.getElementById('loading').classList.add('hidden');
-            document.getElementById('main-content').classList.remove('hidden');
+        if (shifts.length > 0) {
+            this.scheduleData[employeeName] = shifts;
         }
     }
+    
+    console.log('Итоговые данные графика:', this.scheduleData);
+    
+    if (Object.keys(this.scheduleData).length > 0) {
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('main-content').classList.remove('hidden');
+    }
+}
 
-    findCorrectDateRow(data) {
-        for (let rowIndex = 0; rowIndex < data.length; rowIndex++) {
-            const row = data[rowIndex];
-            if (!row) continue;
+findCorrectDateRow(data) {
+    for (let rowIndex = 0; rowIndex < data.length; rowIndex++) {
+        const row = data[rowIndex];
+        if (!row) continue;
+        
+        console.log(`=== ПРОВЕРЯЕМ СТРОКУ ${rowIndex}:`, row);
+        
+        // Ищем последовательность чисел 1,2,3,4... в разных ячейках
+        let sequenceLength = 0;
+        let maxSequence = 0;
+        let expectedNumber = 1;
+        
+        for (let colIndex = 0; colIndex < row.length; colIndex++) {
+            const number = this.extractDateNumber(row[colIndex]);
             
-            console.log(`=== ПРОВЕРЯЕМ СТРОКУ ${rowIndex}:`, row);
-            
-            // Простая проверка: если в строке есть много чисел от 1 до 31
-            let numberCount = 0;
-            for (let colIndex = 0; colIndex < row.length; colIndex++) {
-                const number = this.extractDateNumber(row[colIndex]);
-                if (number !== null) {
-                    numberCount++;
-                    console.log(`Найдено число ${number} в столбце ${colIndex}`);
-                }
-            }
-            
-            console.log(`Строка ${rowIndex}: найдено ${numberCount} чисел`);
-            
-            // Если найдено достаточно чисел (хотя бы 10)
-            if (numberCount >= 10) {
-                console.log(`✅ НАЙДЕНА СТРОКА С ДАТАМИ: строка ${rowIndex}`);
-                return rowIndex;
+            if (number === expectedNumber) {
+                sequenceLength++;
+                expectedNumber++;
+                maxSequence = Math.max(maxSequence, sequenceLength);
+            } else if (number !== null) {
+                // Сбрасываем последовательность если число не то
+                sequenceLength = 0;
+                expectedNumber = 1;
             }
         }
         
-        console.log('❌ Не найдено строк с датами');
-        return -1;
+        console.log(`Строка ${rowIndex}: максимальная последовательность ${maxSequence} чисел`);
+        
+        // Если найдена хорошая последовательность (хотя бы 10 чисел подряд)
+        if (maxSequence >= 10) {
+            console.log(`✅ НАЙДЕНА СТРОКА С ДАТАМИ: строка ${rowIndex}`);
+            return rowIndex;
+        }
     }
+    
+    console.log('❌ Не найдено строк с правильной последовательностью дат');
+    return -1;
+}
 
-    extractCorrectDates(dateRow) {
-        const dates = [];
+extractCorrectDates(dateRow) {
+    const dates = [];
+    let expectedNumber = 1;
+    
+    // Собираем последовательные числа
+    for (let colIndex = 0; colIndex < dateRow.length; colIndex++) {
+        const number = this.extractDateNumber(dateRow[colIndex]);
         
-        // Просто собираем ВСЕ числа от 1 до 31 из строки
-        for (let colIndex = 0; colIndex < dateRow.length; colIndex++) {
-            const number = this.extractDateNumber(dateRow[colIndex]);
-            if (number !== null && number >= 1 && number <= 31) {
-                dates.push(number);
-                console.log(`Добавлена дата: ${number}`);
+        if (number === expectedNumber) {
+            dates.push(number);
+            expectedNumber++;
+            console.log(`Добавлена дата: ${number}`);
+        } else if (number !== null && number > expectedNumber) {
+            // Если пропущены числа, добавляем их
+            while (expectedNumber <= number) {
+                dates.push(expectedNumber);
+                expectedNumber++;
             }
         }
-        
-        // Сортируем по возрастанию
-        dates.sort((a, b) => a - b);
-        console.log('Все даты:', dates);
-        
-        return dates;
     }
+    
+    console.log('Все даты:', dates);
+    return dates;
+}
 
     extractDateNumber(value) {
         if (!value) return null;
