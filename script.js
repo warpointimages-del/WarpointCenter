@@ -297,190 +297,190 @@ class ScheduleApp {
         }
     }
 
-    processCSVData(data, sheetName) {
-        console.log('=== ОБРАБОТКА CSV ДАННЫХ ===');
-        console.log('Все данные:', data);
+processCSVData(data, sheetName) {
+    console.log('=== ОБРАБОТКА CSV ДАННЫХ ===');
+    console.log('Все данные:', data);
+    
+    if (!data || data.length === 0) {
+        console.warn('Нет CSV данных');
+        return;
+    }
+    
+    this.scheduleData = {};
+    
+    // Ищем строку с правильной последовательностью дат (1,2,3,4,...,28)
+    const dateRowIndex = this.findCorrectDateRow(data);
+    console.log('Найдена строка с датами:', dateRowIndex);
+    
+    if (dateRowIndex === -1) {
+        console.warn('Не удалось найти строку с датами');
+        return;
+    }
+    
+    const dateRow = data[dateRowIndex];
+    const dates = this.extractCorrectDates(dateRow);
+    console.log('Извлеченные даты:', dates);
+    
+    if (dates.length === 0) {
+        console.warn('Не найдено дат в строке');
+        return;
+    }
+    
+    // Все строки ниже - сотрудники
+    for (let i = dateRowIndex + 1; i < data.length; i++) {
+        const row = data[i];
+        if (!row || row.length === 0) continue;
         
-        if (!data || data.length === 0) {
-            console.warn('Нет CSV данных');
-            return;
-        }
+        const employeeName = this.extractEmployeeName(row[0]); 
+        if (!employeeName) continue;
         
-        this.scheduleData = {};
+        console.log(`Обрабатываем сотрудника: "${employeeName}"`);
         
-        // Ищем строку с правильной последовательностью дат (1,2,3,4,...,28)
-        const dateRowIndex = this.findCorrectDateRow(data);
-        console.log('Найдена строка с датами:', dateRowIndex);
-        
-        if (dateRowIndex === -1) {
-            console.warn('Не удалось найти строку с датами');
-            return;
-        }
-        
-        const dateRow = data[dateRowIndex];
-        const dates = this.extractCorrectDates(dateRow);
-        console.log('Извлеченные даты:', dates);
-        
-        if (dates.length === 0) {
-            console.warn('Не найдено дат в строке');
-            return;
-        }
-        
-        // Все строки ниже - сотрудники
-        for (let i = dateRowIndex + 1; i < data.length; i++) {
-            const row = data[i];
-            if (!row || row.length === 0) continue;
-            
-            const employeeName = this.extractEmployeeName(row[0]); 
-            if (!employeeName) continue;
-            
-            console.log(`Обрабатываем сотрудника: "${employeeName}"`);
-            
-            const shifts = [];
-            for (let j = 1; j < row.length; j++) {
-                const dateIndex = j - 1;
-                if (dateIndex < dates.length) {
-                    const shiftValue = row[j];
-                    if (shiftValue && shiftValue.trim()) {
-                        const hours = this.parseHours(shiftValue);
-                        if (hours !== null && hours >= 1) {
-                            shifts.push({
-                                date: dates[dateIndex],
-                                hours: hours,
-                                month: sheetName
-                            });
-                            console.log(`Найдена смена: ${dates[dateIndex]} число - ${hours}ч`);
-                        }
+        const shifts = [];
+        for (let j = 1; j < row.length; j++) {
+            const dateIndex = j - 1;
+            if (dateIndex < dates.length) {
+                const shiftValue = row[j];
+                if (shiftValue && shiftValue.trim()) {
+                    const hours = this.parseHours(shiftValue);
+                    if (hours !== null && hours >= 1) {
+                        shifts.push({
+                            date: dates[dateIndex],
+                            hours: hours,
+                            month: sheetName
+                        });
+                        console.log(`Найдена смена: ${dates[dateIndex]} число - ${hours}ч`);
                     }
                 }
             }
-            
-            if (shifts.length > 0) {
-                this.scheduleData[employeeName] = shifts;
-            }
         }
         
-        console.log('Итоговые данные графика:', this.scheduleData);
-        
-        if (Object.keys(this.scheduleData).length > 0) {
-            document.getElementById('loading').classList.add('hidden');
-            document.getElementById('main-content').classList.remove('hidden');
+        if (shifts.length > 0) {
+            this.scheduleData[employeeName] = shifts;
         }
     }
+    
+    console.log('Итоговые данные графика:', this.scheduleData);
+    
+    if (Object.keys(this.scheduleData).length > 0) {
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('main-content').classList.remove('hidden');
+    }
+}
 
-    findCorrectDateRow(data) {
-        // ПРОВЕРЯЕМ ВСЕ СТРОКИ С НАЧАЛА!
-        for (let rowIndex = 0; rowIndex < Math.min(10, data.length); rowIndex++) {
-            const row = data[rowIndex];
-            if (!row || row.length < 28) {
-                console.log(`Строка ${rowIndex}: пропускаем - мало столбцов`);
-                continue;
-            }
-            
-            console.log(`=== ПРОВЕРЯЕМ СТРОКУ ${rowIndex}:`, row);
-            
-            // Ищем последовательность 1,2,3,4,...,28
-            const sequence = this.findSequenceFromStart(row);
-            console.log(`Найдена последовательность в строке ${rowIndex}:`, sequence);
-            
-            // Если нашли хорошую последовательность (хотя бы до 20)
-            if (sequence.length >= 20) {
-                console.log(`✅ НАЙДЕНА ПРАВИЛЬНАЯ СТРОКА С ДАТАМИ: строка ${rowIndex}`);
-                return rowIndex;
-            }
+findCorrectDateRow(data) {
+    // ПРОВЕРЯЕМ ВСЕ СТРОКИ С НАЧАЛА!
+    for (let rowIndex = 0; rowIndex < Math.min(10, data.length); rowIndex++) {
+        const row = data[rowIndex];
+        if (!row || row.length < 28) {
+            console.log(`Строка ${rowIndex}: пропускаем - мало столбцов`);
+            continue;
         }
         
-        console.log('❌ Не найдено строк с правильной последовательностью дат');
-        return -1;
+        console.log(`=== ПРОВЕРЯЕМ СТРОКУ ${rowIndex}:`, row);
+        
+        // Ищем последовательность 1,2,3,4,...,28
+        const sequence = this.findSequenceFromStart(row);
+        console.log(`Найдена последовательность в строке ${rowIndex}:`, sequence);
+        
+        // Если нашли хорошую последовательность (хотя бы до 20)
+        if (sequence.length >= 20) {
+            console.log(`✅ НАЙДЕНА ПРАВИЛЬНАЯ СТРОКА С ДАТАМИ: строка ${rowIndex}`);
+            return rowIndex;
+        }
     }
+    
+    console.log('❌ Не найдено строк с правильной последовательностью дат');
+    return -1;
+}
 
-    findSequenceFromStart(row) {
-        const sequence = [];
-        let expectedNumber = 1;
-        let startCol = -1;
-        
-        // Находим столбец, где начинается число 1
-        for (let colIndex = 0; colIndex < row.length; colIndex++) {
-            const number = this.extractDateNumber(row[colIndex]);
-            if (number === 1) {
-                startCol = colIndex;
-                console.log(`Найдено число 1 в столбце ${colIndex}`);
-                break;
-            }
+findSequenceFromStart(row) {
+    const sequence = [];
+    let expectedNumber = 1;
+    let startCol = -1;
+    
+    // Находим столбец, где начинается число 1
+    for (let colIndex = 0; colIndex < row.length; colIndex++) {
+        const number = this.extractDateNumber(row[colIndex]);
+        if (number === 1) {
+            startCol = colIndex;
+            console.log(`Найдено число 1 в столбце ${colIndex}`);
+            break;
         }
-        
-        if (startCol === -1) {
-            console.log('Не найдено число 1 в строке');
-            return [];
-        }
-        
-        // Проверяем последовательность начиная с найденного столбца
-        for (let colIndex = startCol; colIndex < Math.min(startCol + 31, row.length); colIndex++) {
-            const number = this.extractDateNumber(row[colIndex]);
-            
-            if (number === expectedNumber) {
-                sequence.push(number);
-                expectedNumber++;
-            } else if (number !== null) {
-                // Если число есть, но не то которое ожидали - прерываем
-                break;
-            } else {
-                // Если ячейка пустая - тоже прерываем
-                break;
-            }
-        }
-        
-        return sequence;
     }
+    
+    if (startCol === -1) {
+        console.log('Не найдено число 1 в строке');
+        return [];
+    }
+    
+    // Проверяем последовательность начиная с найденного столбца ДО 28
+    for (let colIndex = startCol; colIndex < Math.min(startCol + 28, row.length); colIndex++) {
+        const number = this.extractDateNumber(row[colIndex]);
+        
+        if (number === expectedNumber) {
+            sequence.push(number);
+            expectedNumber++;
+        } else if (number !== null) {
+            // Если число есть, но не то которое ожидали - прерываем
+            break;
+        } else {
+            // Если ячейка пустая - тоже прерываем
+            break;
+        }
+    }
+    
+    return sequence;
+}
 
-    extractCorrectDates(dateRow) {
-        const dates = [];
-        let startCol = -1;
-        
-        // Находим столбец с числом 1
-        for (let colIndex = 0; colIndex < dateRow.length; colIndex++) {
-            const number = this.extractDateNumber(dateRow[colIndex]);
-            if (number === 1) {
-                startCol = colIndex;
-                break;
-            }
+extractCorrectDates(dateRow) {
+    const dates = [];
+    let startCol = -1;
+    
+    // Находим столбец с числом 1
+    for (let colIndex = 0; colIndex < dateRow.length; colIndex++) {
+        const number = this.extractDateNumber(dateRow[colIndex]);
+        if (number === 1) {
+            startCol = colIndex;
+            break;
         }
-        
-        if (startCol === -1) {
-            console.log('Не найдено число 1 в строке с датами');
-            return [];
-        }
-        
-        // Извлекаем даты начиная с найденного столбца
-        let expectedNumber = 1;
-        for (let colIndex = startCol; colIndex < Math.min(startCol + 31, dateRow.length); colIndex++) {
-            const number = this.extractDateNumber(dateRow[colIndex]);
-            
-            if (number === expectedNumber) {
-                dates.push(number);
-                expectedNumber++;
-            } else {
-                // Прерываем если последовательность нарушена
-                break;
-            }
-        }
-        
-        return dates;
     }
+    
+    if (startCol === -1) {
+        console.log('Не найдено число 1 в строке с датами');
+        return [];
+    }
+    
+    // Извлекаем даты начиная с найденного столбца ДО 28
+    let expectedNumber = 1;
+    for (let colIndex = startCol; colIndex < Math.min(startCol + 28, dateRow.length); colIndex++) {
+        const number = this.extractDateNumber(dateRow[colIndex]);
+        
+        if (number === expectedNumber) {
+            dates.push(number);
+            expectedNumber++;
+        } else {
+            // Прерываем если последовательность нарушена
+            break;
+        }
+    }
+    
+    return dates;
+}
 
-    extractDateNumber(value) {
-        if (!value) return null;
-        
-        const str = value.toString().trim();
-        
-        // Прямое число
-        const num = parseInt(str);
-        if (!isNaN(num) && num >= 1 && num <= 31) {
-            return num;
-        }
-        
-        return null;
+extractDateNumber(value) {
+    if (!value) return null;
+    
+    const str = value.toString().trim();
+    
+    // Прямое число
+    const num = parseInt(str);
+    if (!isNaN(num) && num >= 1 && num <= 31) {
+        return num;
     }
+    
+    return null;
+}
 
     extractEmployeeName(value) {
         if (!value) return null;
