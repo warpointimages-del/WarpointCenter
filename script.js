@@ -308,8 +308,12 @@ class ScheduleApp {
         
         this.scheduleData = {};
         
-        // Ищем строку с датами - теперь ищем последовательность чисел 1,2,3,4...
-        const dateRowInfo = this.findDateRowSequential(data);
+        // Определяем количество дней в месяце из названия листа
+        const daysInMonth = this.getDaysInMonth(sheetName);
+        console.log(`Количество дней в месяце ${sheetName}: ${daysInMonth}`);
+        
+        // Ищем строку с датами - теперь учитываем количество дней в месяце
+        const dateRowInfo = this.findDateRowSequential(data, daysInMonth);
         console.log('Найдена строка с датами:', dateRowInfo);
         
         if (!dateRowInfo) {
@@ -318,7 +322,7 @@ class ScheduleApp {
         }
         
         const { rowIndex: dateRowIndex, startCol: dateStartCol } = dateRowInfo;
-        const dates = this.extractSequentialDates(data[dateRowIndex], dateStartCol);
+        const dates = this.extractSequentialDates(data[dateRowIndex], dateStartCol, daysInMonth);
         console.log('Извлеченные даты:', dates);
         
         if (dates.length === 0) {
@@ -373,8 +377,32 @@ class ScheduleApp {
         }
     }
 
-    findDateRowSequential(data) {
-        // Ищем строку, которая содержит последовательные числа 1,2,3,4...
+    getDaysInMonth(sheetName) {
+        const [monthName, yearStr] = sheetName.split(' ');
+        const year = 2000 + parseInt(yearStr);
+        
+        const months = {
+            'Январь': 0, 'Февраль': 1, 'Март': 2, 'Апрель': 3, 'Май': 4, 'Июнь': 5,
+            'Июль': 6, 'Август': 7, 'Сентябрь': 8, 'Октябрь': 9, 'Ноябрь': 10, 'Декабрь': 11
+        };
+        
+        const monthIndex = months[monthName];
+        if (monthIndex === undefined) return 31; // По умолчанию 31 день
+        
+        // Определяем количество дней в месяце
+        if (monthIndex === 1) { // Февраль
+            // Проверяем високосный год
+            const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+            return isLeapYear ? 29 : 28;
+        } else if ([3, 5, 8, 10].includes(monthIndex)) { // Апрель, Июнь, Сентябрь, Ноябрь
+            return 30;
+        } else {
+            return 31;
+        }
+    }
+
+    findDateRowSequential(data, daysInMonth) {
+        // Ищем строку, которая содержит последовательные числа 1,2,3... до дней в месяце
         for (let rowIndex = 0; rowIndex < Math.min(10, data.length); rowIndex++) {
             const row = data[rowIndex];
             if (!row || row.length < 5) continue;
@@ -384,8 +412,8 @@ class ScheduleApp {
             // Пробуем разные стартовые колонки
             for (let startCol = 0; startCol < Math.min(10, row.length); startCol++) {
                 // Проверяем есть ли последовательность чисел начиная с этой колонки
-                const sequence = this.checkNumberSequence(row, startCol);
-                if (sequence.length >= 5) { // Минимум 5 последовательных чисел
+                const sequence = this.checkNumberSequence(row, startCol, daysInMonth);
+                if (sequence.length >= Math.min(5, daysInMonth)) { // Минимум 5 чисел или дней в месяце
                     console.log(`Найдена последовательность чисел в строке ${rowIndex}, колонка ${startCol}:`, sequence);
                     return { rowIndex, startCol };
                 }
@@ -396,48 +424,52 @@ class ScheduleApp {
         return null;
     }
 
-    checkNumberSequence(row, startCol) {
+    checkNumberSequence(row, startCol, daysInMonth) {
         const sequence = [];
         let expectedNumber = 1;
+        let maxExpected = daysInMonth;
         
-        for (let i = startCol; i < Math.min(startCol + 31, row.length); i++) {
+        for (let i = startCol; i < Math.min(startCol + maxExpected + 5, row.length); i++) {
             const cellValue = row[i];
             const number = this.extractDateNumber(cellValue);
             
-            if (number === expectedNumber) {
+            if (number === expectedNumber && expectedNumber <= maxExpected) {
                 sequence.push(number);
                 expectedNumber++;
-            } else if (number !== null) {
-                // Если число есть, но не последовательное, прерываем последовательность
-                break;
-            } else {
-                // Если ячейка пустая или не число, продолжаем проверять следующие
-                // (возможно есть пропуски в датах)
+            } else if (number !== null && number <= maxExpected) {
+                // Если число есть, но не последовательное, но в пределах месяца
+                sequence.push(number);
+                expectedNumber = number + 1;
+            } else if (number === null && expectedNumber <= maxExpected) {
+                // Если ячейка пустая, но мы еще в пределах месяца, продолжаем
                 expectedNumber++;
+            } else {
+                break;
             }
         }
         
         return sequence;
     }
 
-    extractSequentialDates(row, startCol) {
+    extractSequentialDates(row, startCol, daysInMonth) {
         const dates = [];
         let currentNumber = 1;
+        let maxNumber = daysInMonth;
         
-        for (let i = startCol; i < Math.min(startCol + 31, row.length); i++) {
+        for (let i = startCol; i < Math.min(startCol + maxNumber + 5, row.length); i++) {
+            if (currentNumber > maxNumber) break;
+            
             const cellValue = row[i];
             const number = this.extractDateNumber(cellValue);
             
             // Если находим число, добавляем его в даты
-            if (number !== null) {
+            if (number !== null && number <= maxNumber) {
                 dates.push(number);
                 currentNumber = number + 1;
             } else {
                 // Если ячейка пустая, но мы еще в пределах месяца, добавляем ожидаемое число
-                if (currentNumber <= 31) {
-                    dates.push(currentNumber);
-                    currentNumber++;
-                }
+                dates.push(currentNumber);
+                currentNumber++;
             }
         }
         
