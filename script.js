@@ -15,7 +15,6 @@ class ScheduleApp {
         this.allUsers = {};
         this.allAttachments = {};
         this.showColorPicker = false;
-        this.multiMonthData = {}; // Для хранения данных нескольких месяцев
         
         this.init();
     }
@@ -112,7 +111,6 @@ class ScheduleApp {
             }
             
             const text = await response.text();
-            console.log('Ответ gviz:', text.substring(0, 500));
             
             const jsonStart = text.indexOf('{');
             const jsonEnd = text.lastIndexOf('}') + 1;
@@ -123,8 +121,6 @@ class ScheduleApp {
             
             const jsonText = text.substring(jsonStart, jsonEnd);
             const data = JSON.parse(jsonText);
-            
-            console.log('Данные gviz:', data);
             
             if (data.sheets) {
                 this.availableMonths = data.sheets.map(sheet => sheet.name).filter(name => {
@@ -140,7 +136,6 @@ class ScheduleApp {
         } catch (error) {
             console.error('Ошибка загрузки списка месяцев:', error);
             this.availableMonths = this.generateMonthList();
-            console.log('Используем ручной список листов:', this.availableMonths);
         }
     }
 
@@ -163,37 +158,26 @@ class ScheduleApp {
 
     async loadScheduleData() {
         try {
+            this.scheduleData = {};
+            
             if (this.isMonthView) {
                 // Для месячного вида загружаем только текущий месяц
                 const currentMonthSheet = this.getCurrentMonthSheetName();
-                console.log('Текущий месяц для поиска:', currentMonthSheet);
+                console.log('Загружаем месяц:', currentMonthSheet);
                 
-                let loaded = await this.loadSpecificMonthData(currentMonthSheet);
-                
-                if (!loaded && this.availableMonths.length > 0) {
-                    for (let month of this.availableMonths) {
-                        console.log('Пробуем загрузить:', month);
-                        loaded = await this.loadSpecificMonthData(month);
-                        if (loaded) {
-                            console.log('Успешно загружен лист:', month);
-                            this.currentDate = this.parseDateFromSheetName(month);
-                            break;
-                        }
-                    }
+                const loaded = await this.loadSpecificMonthData(currentMonthSheet);
+                if (!loaded) {
+                    this.showNoDataMessage();
+                    return;
                 }
             } else {
-                // Для недельного вида загружаем все месяцы, которые есть на неделе
+                // Для недельного вида загружаем все месяцы недели
                 await this.loadWeekData();
-            }
-            
-            if (Object.keys(this.scheduleData).length === 0) {
-                console.warn('Не удалось загрузить данные ни для одного листа');
-                document.getElementById('loading').textContent = 'Не удалось загрузить данные графика';
             }
             
         } catch (error) {
             console.error('Ошибка загрузки данных:', error);
-            document.getElementById('loading').textContent = 'Ошибка загрузки: ' + error.message;
+            this.showNoDataMessage();
         }
     }
 
@@ -221,20 +205,29 @@ class ScheduleApp {
         console.log('Месяцы на неделе:', Array.from(monthsInWeek));
         
         // Загружаем данные для каждого месяца
-        this.scheduleData = {};
-        this.multiMonthData = {};
+        let anyDataLoaded = false;
         
         for (let monthSheet of monthsInWeek) {
             console.log(`Загружаем данные для: ${monthSheet}`);
-            const monthData = await this.loadSpecificMonthData(monthSheet, false);
-            if (monthData) {
-                this.multiMonthData[monthSheet] = monthData;
-                // Объединяем данные
-                Object.assign(this.scheduleData, monthData);
+            const loaded = await this.loadSpecificMonthData(monthSheet);
+            if (loaded) {
+                anyDataLoaded = true;
             }
         }
         
-        console.log('Объединенные данные недели:', this.scheduleData);
+        if (!anyDataLoaded) {
+            this.showNoDataMessage();
+        }
+    }
+
+    showNoDataMessage() {
+        const container = this.isMonthView ? 
+            document.getElementById('month-view') : 
+            document.getElementById('week-view');
+        
+        if (container) {
+            container.innerHTML = '<div class="no-data-message">Нет данных для отображения</div>';
+        }
     }
 
     getMonthSheetNameForDate(date) {
@@ -259,7 +252,7 @@ class ScheduleApp {
         return new Date(2000 + parseInt(year), months[monthName], 15);
     }
 
-    async loadSpecificMonthData(sheetName, mergeData = true) {
+    async loadSpecificMonthData(sheetName) {
         try {
             console.log(`=== ЗАГРУЗКА ЛИСТА: "${sheetName}" ===`);
             
@@ -267,45 +260,43 @@ class ScheduleApp {
             if (data && data.length > 0) {
                 console.log('CSV данные получены, строк:', data.length);
                 const monthData = this.processCSVData(data, sheetName);
-                if (mergeData) {
+                if (Object.keys(monthData).length > 0) {
+                    // Объединяем с существующими данными
                     this.scheduleData = { ...this.scheduleData, ...monthData };
+                    return true;
                 }
-                return monthData;
             }
             
             data = await this.loadViaGviz(sheetName);
             if (data) {
                 console.log('Gviz данные получены');
                 const monthData = this.processGvizData(data, sheetName);
-                if (mergeData) {
+                if (Object.keys(monthData).length > 0) {
+                    // Объединяем с существующими данными
                     this.scheduleData = { ...this.scheduleData, ...monthData };
+                    return true;
                 }
-                return monthData;
             }
             
             console.log(`Не удалось загрузить данные для листа: "${sheetName}"`);
-            return null;
+            return false;
             
         } catch (error) {
             console.error(`Ошибка загрузки данных для листа "${sheetName}":`, error);
-            return null;
+            return false;
         }
     }
 
     async loadViaCSV(sheetName) {
         try {
             const url = `https://docs.google.com/spreadsheets/d/1leyP2K649JNfC8XvIV3amZPnQz18jFI95JAJoeXcXGk/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-            console.log('CSV URL:', url);
             
             const response = await fetch(url);
             if (!response.ok) {
-                console.log('CSV response not OK:', response.status);
                 return null;
             }
             
             const csvText = await response.text();
-            console.log('CSV данные (первые 500 символов):', csvText.substring(0, 500));
-            
             return this.parseCSV(csvText);
         } catch (error) {
             console.error('Ошибка CSV загрузки:', error);
@@ -314,8 +305,6 @@ class ScheduleApp {
     }
 
     parseCSV(csvText) {
-        console.log('Исходный CSV текст:', csvText);
-        
         const lines = csvText.split('\n').filter(line => line.trim());
         const result = [];
         
@@ -331,7 +320,6 @@ class ScheduleApp {
             result.push(cleanedCells);
         }
         
-        console.log('Парсинг CSV результат:', result);
         return result;
     }
 
@@ -341,7 +329,6 @@ class ScheduleApp {
             const response = await fetch(url);
             
             if (!response.ok) {
-                console.log('Gviz response not OK:', response.status);
                 return null;
             }
             
@@ -350,7 +337,6 @@ class ScheduleApp {
             const jsonEnd = text.lastIndexOf('}') + 1;
             
             if (jsonStart === -1 || jsonEnd === -1) {
-                console.log('Invalid JSON in gviz response');
                 return null;
             }
             
@@ -363,10 +349,7 @@ class ScheduleApp {
     }
 
     processCSVData(data, sheetName) {
-        console.log('=== ОБРАБОТКА CSV ДАННЫХ ===');
-        
         if (!data || data.length === 0) {
-            console.warn('Нет CSV данных');
             return {};
         }
         
@@ -374,19 +357,13 @@ class ScheduleApp {
         
         // Ищем строку с последовательностью чисел от 1 до 28
         const dateRowIndex = this.findDateRowBySequence(data);
-        console.log('Найдена строка с датами:', dateRowIndex);
-        
         if (dateRowIndex === -1) {
-            console.warn('Не удалось найти строку с датами');
             return {};
         }
         
         const dateRow = data[dateRowIndex];
         const dates = this.extractDatesFromRow(dateRow);
-        console.log('Извлеченные даты:', dates);
-        
         if (dates.length === 0) {
-            console.warn('Не найдено дат в строке');
             return {};
         }
         
@@ -398,8 +375,6 @@ class ScheduleApp {
             
             const employeeName = this.extractEmployeeName(row[0]); 
             if (!employeeName) continue;
-            
-            console.log(`Обрабатываем сотрудника: "${employeeName}"`);
             
             const shifts = [];
             for (let j = 1; j < row.length; j++) {
@@ -414,7 +389,6 @@ class ScheduleApp {
                                 hours: hours,
                                 month: sheetName
                             });
-                            console.log(`Найдена смена: ${dates[dateIndex]} число - ${hours}ч`);
                         }
                     }
                 }
@@ -425,7 +399,6 @@ class ScheduleApp {
             }
         }
         
-        console.log('Данные месяца:', monthData);
         return monthData;
     }
 
@@ -447,12 +420,10 @@ class ScheduleApp {
             
             // Проверяем, содержит ли строка последовательность от 1 до 28
             if (this.containsSequence(numbersInRow, targetSequence)) {
-                console.log(`✅ НАЙДЕНА СТРОКА С ДАТАМИ: строка ${rowIndex}`);
                 return rowIndex;
             }
         }
         
-        console.log('❌ Не найдено строк с правильной последовательностью дат');
         return -1;
     }
 
@@ -492,7 +463,6 @@ class ScheduleApp {
             }
         }
         
-        console.log('Все даты:', dates);
         return dates;
     }
 
@@ -562,10 +532,7 @@ class ScheduleApp {
     }
 
     processGvizData(data, sheetName) {
-        console.log('=== ОБРАБОТКА GVIZ ДАННЫХ ===');
-        
         if (!data.table || !data.table.rows) {
-            console.warn('Нет данных в таблице gviz');
             return {};
         }
         
@@ -584,8 +551,6 @@ class ScheduleApp {
                 }
             }
         }
-        
-        console.log('Даты в таблице gviz:', dates);
         
         for (let i = 1; i < rows.length; i++) {
             const row = rows[i];
@@ -616,7 +581,6 @@ class ScheduleApp {
             }
         }
         
-        console.log('Данные месяца gviz:', monthData);
         return monthData;
     }
 
@@ -629,11 +593,6 @@ class ScheduleApp {
         document.getElementById('next-week').addEventListener('click', () => this.changeWeek(1));
         document.getElementById('toggle-view').addEventListener('click', () => this.toggleView());
         document.getElementById('show-only-mine').addEventListener('change', (e) => this.toggleFilter(e.target.checked));
-        
-        const monthSelect = document.getElementById('month-select');
-        if (monthSelect) {
-            monthSelect.addEventListener('change', (e) => this.changeMonth(e.target.value));
-        }
     }
 
     initializeAdminControls() {
@@ -684,29 +643,19 @@ class ScheduleApp {
         this.render();
     }
 
-    async changeMonth(monthSheetName) {
-        await this.loadSpecificMonthData(monthSheetName);
-        this.currentDate = this.parseDateFromSheetName(monthSheetName);
-        this.render();
-    }
-
     render() {
         console.log('=== RENDER START ===');
         
         this.updateNavigation();
-        this.renderMonthNavigation();
         this.renderColorPicker();
         
         const employeesToShow = this.getFilteredEmployees();
-        console.log('Сотрудники для отображения:', employeesToShow);
         
         if (this.isMonthView) {
             this.renderMonthView(employeesToShow);
         } else {
             this.renderWeekView(employeesToShow);
         }
-        
-        console.log('=== RENDER END ===');
     }
 
     renderColorPicker() {
@@ -825,33 +774,6 @@ class ScheduleApp {
         }
     }
 
-    renderMonthNavigation() {
-        const monthNavigation = document.getElementById('month-navigation');
-        const monthSelect = document.getElementById('month-select');
-        
-        if (!monthNavigation || !monthSelect) return;
-        
-        if (this.isMonthView && this.availableMonths.length > 0) {
-            monthNavigation.classList.remove('hidden');
-            
-            monthSelect.innerHTML = '';
-            this.availableMonths.forEach(month => {
-                const option = document.createElement('option');
-                option.value = month;
-                option.textContent = month;
-                
-                const hasData = Object.keys(this.scheduleData).length > 0;
-                if (hasData) {
-                    option.style.fontWeight = 'bold';
-                }
-                
-                monthSelect.appendChild(option);
-            });
-        } else {
-            monthNavigation.classList.add('hidden');
-        }
-    }
-
     renderWeekView(employeesToShow) {
         const weekView = document.getElementById('week-view');
         const monthView = document.getElementById('month-view');
@@ -885,9 +807,6 @@ class ScheduleApp {
             }
         });
         
-        console.log('Мои сотрудники:', myEmployees);
-        console.log('Остальные сотрудники:', otherEmployees);
-        
         // Сначала отображаем "моих" сотрудников
         myEmployees.forEach(employee => {
             html += `<div class="week-time-cell my-employee">${employee}</div>`;
@@ -900,7 +819,6 @@ class ScheduleApp {
                 
                 html += `<div class="week-day">`;
                 
-                // Получаем смены из правильного месяца
                 const shifts = this.getShiftsForDay(employee, dayNumber, dayMonth);
                 
                 shifts.forEach(shift => {
@@ -924,7 +842,6 @@ class ScheduleApp {
                 
                 html += `<div class="week-day">`;
                 
-                // Получаем смены из правильного месяца
                 const shifts = this.getShiftsForDay(employee, dayNumber, dayMonth);
                 
                 shifts.forEach(shift => {
@@ -941,21 +858,12 @@ class ScheduleApp {
     }
 
     getShiftsForDay(employee, dayNumber, monthSheet) {
-        // Сначала проверяем основной scheduleData
         const employeeShifts = this.scheduleData[employee];
-        if (employeeShifts) {
-            return employeeShifts.filter(shift => 
-                shift.date === dayNumber && shift.month === monthSheet
-            );
-        }
+        if (!employeeShifts) return [];
         
-        // Если не нашли, проверяем multiMonthData
-        const monthData = this.multiMonthData[monthSheet];
-        if (monthData && monthData[employee]) {
-            return monthData[employee].filter(shift => shift.date === dayNumber);
-        }
-        
-        return [];
+        return employeeShifts.filter(shift => 
+            shift.date === dayNumber && shift.month === monthSheet
+        );
     }
 
     getMonthName(monthIndex) {
