@@ -373,14 +373,18 @@ class ScheduleApp {
         // Ищем строку с последовательностью чисел от 1 до 28
         const dateRowIndex = this.findDateRowBySequence(data);
         if (dateRowIndex === -1) {
+            console.log('Не найдена строка с датами');
             return {};
         }
         
         const dateRow = data[dateRowIndex];
         const dates = this.extractDatesFromRow(dateRow);
         if (dates.length === 0) {
+            console.log('Не найдены даты в строке');
             return {};
         }
+        
+        console.log(`Найдены даты: ${dates.join(', ')}`);
         
         // Все строки ниже - сотрудники
         const startRow = dateRowIndex + 1;
@@ -391,19 +395,28 @@ class ScheduleApp {
             const employeeName = this.extractEmployeeName(row[0]); 
             if (!employeeName) continue;
             
+            console.log(`Обрабатываем сотрудника: "${employeeName}"`);
+            
             const shifts = [];
             for (let j = 1; j < row.length; j++) {
                 const dateIndex = j - 1;
                 if (dateIndex < dates.length) {
                     const shiftValue = row[j];
                     if (shiftValue && shiftValue.trim()) {
+                        console.log(`Ячейка [${i},${j}]: дата ${dates[dateIndex]}, значение "${shiftValue}"`);
+                        
                         const hours = this.parseHours(shiftValue);
-                        if (hours !== null && hours >= 1) {
+                        console.log(`Результат парсинга: ${hours}`);
+                        
+                        if (hours !== null && hours >= 0.5) { // Минимум 0.5 часа
                             shifts.push({
                                 date: dates[dateIndex],
                                 hours: hours,
                                 month: sheetName
                             });
+                            console.log(`✓ Добавлена смена: ${dates[dateIndex]} число - ${hours}ч`);
+                        } else {
+                            console.log(`✗ Пропущена смена: ${dates[dateIndex]} число - невалидные часы`);
                         }
                     }
                 }
@@ -411,10 +424,13 @@ class ScheduleApp {
             
             if (shifts.length > 0) {
                 monthData[employeeName] = shifts;
+                console.log(`✅ Сотрудник "${employeeName}": ${shifts.length} смен`);
+            } else {
+                console.log(`❌ Сотрудник "${employeeName}": нет валидных смен`);
             }
         }
         
-        console.log(`Данные для ${sheetName}:`, monthData);
+        console.log(`Итог по листу ${sheetName}: ${Object.keys(monthData).length} сотрудников`);
         return monthData;
     }
 
@@ -511,27 +527,75 @@ class ScheduleApp {
     parseHours(value) {
         if (!value) return null;
         
-        const str = value.toString().trim();
+        const str = value.toString().trim().toLowerCase();
         
-        const num = parseFloat(str);
-        if (!isNaN(num)) {
-            return num;
+        console.log(`Парсим значение: "${str}"`);
+        
+        // Сначала проверяем специальные текстовые значения
+        if (str === 'полсмены' || str === 'половина смены' || str === 'пол смены') {
+            return 4; // полсмены = 4 часа
         }
         
-        const numWithComma = parseFloat(str.replace(',', '.'));
-        if (!isNaN(numWithComma)) {
-            return numWithComma;
+        if (str === 'целая смена' || str === 'полная смена' || str === 'смена') {
+            return 8; // полная смена = 8 часов
         }
         
-        const hourMatch = str.match(/(\d+[,.]?\d*)\s*(ч|час|часов)?/);
-        if (hourMatch) {
-            const hourNum = parseFloat(hourMatch[1].replace(',', '.'));
-            if (!isNaN(hourNum)) {
-                return hourNum;
+        // Пробуем разные числовые форматы по приоритету
+        
+        // 1. Просто число с точкой "1.5"
+        const numWithDot = parseFloat(str);
+        if (!isNaN(numWithDot) && numWithDot > 0) {
+            console.log(`Распознано как число с точкой: ${numWithDot}`);
+            return numWithDot;
+        }
+        
+        // 2. Число с запятой "1,5" - заменяем запятую на точку
+        if (str.includes(',')) {
+            const normalizedStr = str.replace(',', '.');
+            const numWithComma = parseFloat(normalizedStr);
+            if (!isNaN(numWithComma) && numWithComma > 0) {
+                console.log(`Распознано как число с запятой: ${numWithComma}`);
+                return numWithComma;
             }
         }
         
-        const timeMatch = str.match(/(\d+):(\d+)\s*-\s*(\d+):(\d+)/);
+        // 3. Дробь вида "1 1/2" или "3/4"
+        const fractionMatch = str.match(/(\d+)\s+(\d+)\/(\d+)/) || str.match(/(\d+)\/(\d+)/);
+        if (fractionMatch) {
+            let whole = 0;
+            let numerator, denominator;
+            
+            if (fractionMatch[3]) {
+                // формат "1 1/2"
+                whole = parseInt(fractionMatch[1]);
+                numerator = parseInt(fractionMatch[2]);
+                denominator = parseInt(fractionMatch[3]);
+            } else {
+                // формат "1/2"
+                numerator = parseInt(fractionMatch[1]);
+                denominator = parseInt(fractionMatch[2]);
+            }
+            
+            if (denominator !== 0) {
+                const result = whole + (numerator / denominator);
+                console.log(`Распознано как дробь: ${result}`);
+                return result;
+            }
+        }
+        
+        // 4. Число с указанием часов "1.5ч", "2 часа", "3часа"
+        const hourMatch = str.match(/(\d+[,.]?\d*)\s*(ч|час|часов|часа)/);
+        if (hourMatch) {
+            let hourStr = hourMatch[1].replace(',', '.');
+            const num = parseFloat(hourStr);
+            if (!isNaN(num) && num > 0) {
+                console.log(`Распознано как число с указанием часов: ${num}`);
+                return num;
+            }
+        }
+        
+        // 5. Время в формате "10:00-18:00" или "9:00 - 17:30"
+        const timeMatch = str.match(/(\d+):(\d+)\s*[-–]\s*(\d+):(\d+)/);
         if (timeMatch) {
             const startHours = parseInt(timeMatch[1]);
             const startMinutes = parseInt(timeMatch[2]);
@@ -540,10 +604,20 @@ class ScheduleApp {
             
             const totalMinutes = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
             if (totalMinutes > 0) {
-                return totalMinutes / 60;
+                const result = totalMinutes / 60;
+                console.log(`Распознано как интервал времени: ${result}`);
+                return result;
             }
         }
         
+        // 6. Просто число без указания единиц (последняя попытка)
+        const simpleNum = parseFloat(str);
+        if (!isNaN(simpleNum) && simpleNum > 0 && simpleNum <= 24) {
+            console.log(`Распознано как простое число: ${simpleNum}`);
+            return simpleNum;
+        }
+        
+        console.log(`Не удалось распознать часы из: "${str}"`);
         return null;
     }
 
@@ -581,7 +655,7 @@ class ScheduleApp {
                     const shiftCell = row.c[j];
                     if (shiftCell && shiftCell.v !== null) {
                         const hours = this.parseHours(shiftCell.v.toString());
-                        if (hours !== null && hours >= 1) {
+                        if (hours !== null && hours >= 0.5) { // Минимум 0.5 часа
                             shifts.push({
                                 date: dates[j-1],
                                 hours: hours,
