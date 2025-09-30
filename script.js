@@ -1,5 +1,8 @@
 import { firebaseService } from './firebase.js';
 
+const GOOGLE_SHEETS_API_KEY = "AIzaSyAbLz1MnfjYIQMDkmqgMa09Z3W_j8dnJbM";
+const SPREADSHEET_ID = "1leyP2K649JNfC8XvIV3amZPnQz18jFI95JAJoeXcXGk";
+
 class ScheduleApp {
     constructor() {
         this.tg = window.Telegram.WebApp;
@@ -101,30 +104,20 @@ class ScheduleApp {
 
     async loadAvailableMonths() {
         try {
-            console.log('Загрузка списка листов через gviz...');
+            console.log('Загрузка списка листов через Sheets API...');
             
-            const response = await fetch(
-                `https://docs.google.com/spreadsheets/d/1leyP2K649JNfC8XvIV3amZPnQz18jFI95JAJoeXcXGk/gviz/tq`
-            );
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?key=${GOOGLE_SHEETS_API_KEY}`;
+            const response = await fetch(url);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
-            const text = await response.text();
-            
-            const jsonStart = text.indexOf('{');
-            const jsonEnd = text.lastIndexOf('}') + 1;
-            
-            if (jsonStart === -1 || jsonEnd === -1) {
-                throw new Error('Invalid JSON response');
-            }
-            
-            const jsonText = text.substring(jsonStart, jsonEnd);
-            const data = JSON.parse(jsonText);
+            const data = await response.json();
+            console.log('Sheets API данные:', data);
             
             if (data.sheets) {
-                this.availableMonths = data.sheets.map(sheet => sheet.name).filter(name => {
+                this.availableMonths = data.sheets.map(sheet => sheet.properties.title).filter(name => {
                     const monthPattern = /^(Январь|Февраль|Март|Апрель|Май|Июнь|Июль|Август|Сентябрь|Октябрь|Ноябрь|Декабрь)\s\d{2}$/;
                     return monthPattern.test(name);
                 });
@@ -269,22 +262,11 @@ class ScheduleApp {
         try {
             console.log(`=== ЗАГРУЗКА ЛИСТА: "${sheetName}" ===`);
             
-            let data = await this.loadViaCSV(sheetName);
+        // Используем только Google Sheets API v4
+            const data = await this.loadViaSheetsAPI(sheetName);
             if (data && data.length > 0) {
-                console.log('CSV данные получены, строк:', data.length);
-                const monthData = this.processCSVData(data, sheetName);
-                if (Object.keys(monthData).length > 0) {
-                    if (mergeToScheduleData) {
-                        this.scheduleData = { ...this.scheduleData, ...monthData };
-                    }
-                    return monthData;
-                }
-            }
-            
-            data = await this.loadViaGviz(sheetName);
-            if (data) {
-                console.log('Gviz данные получены');
-                const monthData = this.processGvizData(data, sheetName);
+                console.log('Sheets API данные получены, строк:', data.length);
+                const monthData = this.processSheetData(data, sheetName);
                 if (Object.keys(monthData).length > 0) {
                     if (mergeToScheduleData) {
                         this.scheduleData = { ...this.scheduleData, ...monthData };
@@ -302,101 +284,42 @@ class ScheduleApp {
         }
     }
 
-    async loadViaCSV(sheetName) {
+    async loadViaSheetsAPI(sheetName) {
         try {
-            const url = `https://docs.google.com/spreadsheets/d/1leyP2K649JNfC8XvIV3amZPnQz18jFI95JAJoeXcXGk/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}?key=${GOOGLE_SHEETS_API_KEY}`;
             
+            console.log('Загружаем через Sheets API:', url);
             const response = await fetch(url);
             if (!response.ok) {
+                console.log('Sheets API response not OK:', response.status);
                 return null;
             }
             
-            const csvText = await response.text();
-            return this.parseCSV(csvText);
-        } catch (error) {
-            console.error('Ошибка CSV загрузки:', error);
-            return null;
-        }
-    }
-
-    parseCSV(csvText) {
-        const result = [];
-        let current = '';
-        let inQuotes = false;
-        let row = [];
-        
-        for (let i = 0; i < csvText.length; i++) {
-            const char = csvText[i];
-            const nextChar = csvText[i + 1];
+            const data = await response.json();
+            console.log('Sheets API ответ:', data);
             
-            if (char === '"') {
-                if (inQuotes && nextChar === '"') {
-                    // Экранированная кавычка внутри кавычек
-                    current += '"';
-                    i++; // Пропускаем следующую кавычку
-                } else {
-                    // Начало или конец кавычек
-                    inQuotes = !inQuotes;
-                }
-            } else if (char === ',' && !inQuotes) {
-                // Конец ячейки
-                row.push(current.trim());
-                current = '';
-            } else if (char === '\n' && !inQuotes) {
-                // Конец строки
-                row.push(current.trim());
-                result.push(row);
-                row = [];
-                current = '';
-            } else if (char === '\r') {
-                // Игнорируем carriage return
-                continue;
+            if (data.values && data.values.length > 0) {
+                console.log('Получены данные:', data.values.length, 'строк');
+                return data.values;
             } else {
-                current += char;
-            }
-        }
-        
-        // Добавляем последнюю ячейку если есть
-        if (current.trim() || row.length > 0) {
-            row.push(current.trim());
-            result.push(row);
-        }
-        
-        console.log('Парсинг CSV результат:', result);
-        return result;
-    }
-
-    async loadViaGviz(sheetName) {
-        try {
-            const url = `https://docs.google.com/spreadsheets/d/1leyP2K649JNfC8XvIV3amZPnQz18jFI95JAJoeXcXGk/gviz/tq?sheet=${encodeURIComponent(sheetName)}`;
-            const response = await fetch(url);
-            
-            if (!response.ok) {
+                console.log('Нет данных в листе');
                 return null;
             }
             
-            const text = await response.text();
-            const jsonStart = text.indexOf('{');
-            const jsonEnd = text.lastIndexOf('}') + 1;
-            
-            if (jsonStart === -1 || jsonEnd === -1) {
-                return null;
-            }
-            
-            const jsonText = text.substring(jsonStart, jsonEnd);
-            return JSON.parse(jsonText);
         } catch (error) {
-            console.error('Ошибка Gviz загрузки:', error);
+            console.error('Ошибка Sheets API загрузки:', error);
             return null;
         }
     }
 
-    processCSVData(data, sheetName) {
+    processSheetData(data, sheetName) {
         if (!data || data.length === 0) {
             return {};
         }
         
         const monthData = {};
+        
+        console.log('Обрабатываем данные листа:', data);
         
         // Ищем строку с последовательностью чисел от 1 до 28
         const dateRowIndex = this.findDateRowBySequence(data);
@@ -480,10 +403,12 @@ class ScheduleApp {
             
             // Проверяем, содержит ли строка последовательность от 1 до 28
             if (this.containsSequence(numbersInRow, targetSequence)) {
+                console.log(`✅ Найдена строка с датами: строка ${rowIndex}`);
                 return rowIndex;
             }
         }
         
+        console.log('❌ Не найдено строк с правильной последовательностью дат');
         return -1;
     }
 
@@ -647,59 +572,6 @@ class ScheduleApp {
         
         console.log(`Не удалось распознать часы из: "${str}"`);
         return null;
-    }
-
-    processGvizData(data, sheetName) {
-        if (!data.table || !data.table.rows) {
-            return {};
-        }
-        
-        const rows = data.table.rows;
-        const dates = [];
-        const monthData = {};
-        
-        if (rows[0] && rows[0].c) {
-            for (let i = 1; i < rows[0].c.length; i++) {
-                const dateCell = rows[0].c[i];
-                if (dateCell && dateCell.v !== null) {
-                    const dateNum = this.extractDateNumber(dateCell.v.toString());
-                    if (dateNum !== null) {
-                        dates.push(dateNum);
-                    }
-                }
-            }
-        }
-        
-        for (let i = 1; i < rows.length; i++) {
-            const row = rows[i];
-            if (!row.c || !row.c[0] || row.c[0].v === null) continue;
-            
-            const employeeName = this.extractEmployeeName(row.c[0].v.toString());
-            if (!employeeName) continue;
-            
-            const shifts = [];
-            for (let j = 1; j < row.c.length; j++) {
-                if (j-1 < dates.length) {
-                    const shiftCell = row.c[j];
-                    if (shiftCell && shiftCell.v !== null) {
-                        const hours = this.parseHours(shiftCell.v.toString());
-                        if (hours !== null && hours >= 0.5) { // Минимум 0.5 часа
-                            shifts.push({
-                                date: dates[j-1],
-                                hours: hours,
-                                month: sheetName
-                            });
-                        }
-                    }
-                }
-            }
-            
-            if (shifts.length > 0) {
-                monthData[employeeName] = shifts;
-            }
-        }
-        
-        return monthData;
     }
 
     getCurrentMonthSheetName() {
