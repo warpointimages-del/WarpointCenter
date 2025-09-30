@@ -2,7 +2,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>График работы</title>
+    <title>WorkSchedule</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script type="module" src="firebase.js"></script>
@@ -11,36 +11,125 @@
 </head>
 <body>
     <div id="app">
+        <!-- Загрузка -->
         <div id="loading">Загрузка...</div>
         
+        <!-- Основной контент -->
         <div id="main-content" class="hidden">
-            <!-- Админская панель -->
-            <div id="admin-panel" class="hidden">
-                <h3>Админская панель</h3>
-                <div id="users-list"></div>
-                <div id="registered-employees"></div>
+            <!-- Страница Задач -->
+            <div id="tasks-page" class="page hidden">
+                <div class="page-header">
+                    <h1>Задачи</h1>
+                </div>
+                <div class="page-content">
+                    <div class="empty-state">
+                        <div class="empty-icon">📋</div>
+                        <h3>Задачи появятся скоро</h3>
+                        <p>Здесь будут отображаться ваши текущие задачи и поручения</p>
+                    </div>
+                </div>
             </div>
 
-            <!-- Остальная часть -->
-            <div id="filters-panel">
-                <label class="checkbox-container">
-                    <input type="checkbox" id="show-only-mine">
-                    <span class="checkmark"></span>
-                    Только мои смены
-                </label>
+            <!-- Страница Графика (главная) -->
+            <div id="schedule-page" class="page">
+                <div class="page-header">
+                    <h1>График работы</h1>
+                </div>
+                <div class="page-content">
+                    <!-- Админская панель -->
+                    <div id="admin-panel" class="hidden">
+                        <h3>Админская панель</h3>
+                        <div id="users-list"></div>
+                        <div id="registered-employees"></div>
+                    </div>
+
+                    <!-- Фильтры -->
+                    <div id="filters-panel">
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="show-only-mine">
+                            <span class="checkmark"></span>
+                            Только мои смены
+                        </label>
+                    </div>
+
+                    <!-- Навигация по неделям/месяцам -->
+                    <div id="navigation">
+                        <button id="prev-week" class="nav-btn">←</button>
+                        <div id="current-period"></div>
+                        <button id="next-week" class="nav-btn">→</button>
+                    </div>
+
+                    <!-- Переключение вида -->
+                    <button id="toggle-view" class="toggle-btn">▼</button>
+
+                    <!-- Календарь -->
+                    <div id="calendar-container">
+                        <div id="week-view"></div>
+                        <div id="month-view" class="hidden"></div>
+                    </div>
+                </div>
             </div>
 
-            <div id="navigation">
-                <button id="prev-week" class="nav-btn">←</button>
-                <div id="current-period"></div>
-                <button id="next-week" class="nav-btn">→</button>
+            <!-- Страница Профиля -->
+            <div id="profile-page" class="page hidden">
+                <div class="page-header">
+                    <h1>Профиль</h1>
+                </div>
+                <div class="page-content">
+                    <!-- Информация о пользователе -->
+                    <div class="user-info-section">
+                        <div class="user-avatar">
+                            <div class="avatar-placeholder">
+                                ${this.user?.firstName?.charAt(0) || 'U'}
+                            </div>
+                        </div>
+                        <div class="user-details">
+                            <h2 id="user-fullname"></h2>
+                            <p id="user-username"></p>
+                            <div class="user-status" id="user-status"></div>
+                        </div>
+                    </div>
+
+                    <!-- Настройки цветов -->
+                    <div class="settings-section">
+                        <h3>Настройки отображения</h3>
+                        <div id="color-picker-container"></div>
+                    </div>
+
+                    <!-- Настройки фильтров -->
+                    <div class="settings-section">
+                        <h3>Фильтры графика</h3>
+                        <div class="filter-settings">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="global-show-only-registered">
+                                <span class="checkmark"></span>
+                                Показывать только зарегистрированных сотрудников
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Админские настройки (только для админов) -->
+                    <div id="admin-settings" class="settings-section hidden">
+                        <h3>Админские настройки</h3>
+                        <div id="admin-panel-content"></div>
+                    </div>
+                </div>
             </div>
+        </div>
 
-            <button id="toggle-view" class="toggle-btn">▼</button>
-
-            <div id="calendar-container">
-                <div id="week-view"></div>
-                <div id="month-view" class="hidden"></div>
+        <!-- Нижнее меню -->
+        <div id="bottom-navigation" class="hidden">
+            <div class="nav-item" data-page="tasks">
+                <div class="nav-icon">📋</div>
+                <div class="nav-label">Задачи</div>
+            </div>
+            <div class="nav-item active" data-page="schedule">
+                <div class="nav-icon">📅</div>
+                <div class="nav-label">График</div>
+            </div>
+            <div class="nav-item" data-page="profile">
+                <div class="nav-icon">👤</div>
+                <div class="nav-label">Профиль</div>
             </div>
         </div>
     </div>
