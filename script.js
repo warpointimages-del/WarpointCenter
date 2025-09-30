@@ -15,6 +15,7 @@ class ScheduleApp {
         this.allUsers = {};
         this.allAttachments = {};
         this.showColorPicker = false;
+        this.multiMonthData = {}; // Для хранения данных нескольких месяцев
         
         this.init();
     }
@@ -162,25 +163,30 @@ class ScheduleApp {
 
     async loadScheduleData() {
         try {
-            const currentMonthSheet = this.getCurrentMonthSheetName();
-            console.log('Текущий месяц для поиска:', currentMonthSheet);
-            console.log('Доступные листы:', this.availableMonths);
-            
-            let loaded = await this.loadSpecificMonthData(currentMonthSheet);
-            
-            if (!loaded && this.availableMonths.length > 0) {
-                for (let month of this.availableMonths) {
-                    console.log('Пробуем загрузить:', month);
-                    loaded = await this.loadSpecificMonthData(month);
-                    if (loaded) {
-                        console.log('Успешно загружен лист:', month);
-                        this.currentDate = this.parseDateFromSheetName(month);
-                        break;
+            if (this.isMonthView) {
+                // Для месячного вида загружаем только текущий месяц
+                const currentMonthSheet = this.getCurrentMonthSheetName();
+                console.log('Текущий месяц для поиска:', currentMonthSheet);
+                
+                let loaded = await this.loadSpecificMonthData(currentMonthSheet);
+                
+                if (!loaded && this.availableMonths.length > 0) {
+                    for (let month of this.availableMonths) {
+                        console.log('Пробуем загрузить:', month);
+                        loaded = await this.loadSpecificMonthData(month);
+                        if (loaded) {
+                            console.log('Успешно загружен лист:', month);
+                            this.currentDate = this.parseDateFromSheetName(month);
+                            break;
+                        }
                     }
                 }
+            } else {
+                // Для недельного вида загружаем все месяцы, которые есть на неделе
+                await this.loadWeekData();
             }
             
-            if (!loaded) {
+            if (Object.keys(this.scheduleData).length === 0) {
                 console.warn('Не удалось загрузить данные ни для одного листа');
                 document.getElementById('loading').textContent = 'Не удалось загрузить данные графика';
             }
@@ -189,6 +195,58 @@ class ScheduleApp {
             console.error('Ошибка загрузки данных:', error);
             document.getElementById('loading').textContent = 'Ошибка загрузки: ' + error.message;
         }
+    }
+
+    async loadWeekData() {
+        console.log('=== ЗАГРУЗКА ДАННЫХ ДЛЯ НЕДЕЛИ ===');
+        
+        const weekStart = new Date(this.currentDate);
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+        
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        
+        console.log('Неделя с', weekStart, 'по', weekEnd);
+        
+        // Собираем уникальные месяцы на неделе
+        const monthsInWeek = new Set();
+        const currentDay = new Date(weekStart);
+        
+        while (currentDay <= weekEnd) {
+            const monthSheet = this.getMonthSheetNameForDate(currentDay);
+            monthsInWeek.add(monthSheet);
+            currentDay.setDate(currentDay.getDate() + 1);
+        }
+        
+        console.log('Месяцы на неделе:', Array.from(monthsInWeek));
+        
+        // Загружаем данные для каждого месяца
+        this.scheduleData = {};
+        this.multiMonthData = {};
+        
+        for (let monthSheet of monthsInWeek) {
+            console.log(`Загружаем данные для: ${monthSheet}`);
+            const monthData = await this.loadSpecificMonthData(monthSheet, false);
+            if (monthData) {
+                this.multiMonthData[monthSheet] = monthData;
+                // Объединяем данные
+                Object.assign(this.scheduleData, monthData);
+            }
+        }
+        
+        console.log('Объединенные данные недели:', this.scheduleData);
+    }
+
+    getMonthSheetNameForDate(date) {
+        const months = [
+            'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+            'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+        ];
+        
+        const month = months[date.getMonth()];
+        const year = date.getFullYear().toString().slice(2);
+        
+        return `${month} ${year}`;
     }
 
     parseDateFromSheetName(sheetName) {
@@ -201,30 +259,36 @@ class ScheduleApp {
         return new Date(2000 + parseInt(year), months[monthName], 15);
     }
 
-    async loadSpecificMonthData(sheetName) {
+    async loadSpecificMonthData(sheetName, mergeData = true) {
         try {
             console.log(`=== ЗАГРУЗКА ЛИСТА: "${sheetName}" ===`);
             
             let data = await this.loadViaCSV(sheetName);
             if (data && data.length > 0) {
                 console.log('CSV данные получены, строк:', data.length);
-                this.processCSVData(data, sheetName);
-                return true;
+                const monthData = this.processCSVData(data, sheetName);
+                if (mergeData) {
+                    this.scheduleData = { ...this.scheduleData, ...monthData };
+                }
+                return monthData;
             }
             
             data = await this.loadViaGviz(sheetName);
             if (data) {
                 console.log('Gviz данные получены');
-                this.processGvizData(data, sheetName);
-                return true;
+                const monthData = this.processGvizData(data, sheetName);
+                if (mergeData) {
+                    this.scheduleData = { ...this.scheduleData, ...monthData };
+                }
+                return monthData;
             }
             
             console.log(`Не удалось загрузить данные для листа: "${sheetName}"`);
-            return false;
+            return null;
             
         } catch (error) {
             console.error(`Ошибка загрузки данных для листа "${sheetName}":`, error);
-            return false;
+            return null;
         }
     }
 
@@ -240,7 +304,7 @@ class ScheduleApp {
             }
             
             const csvText = await response.text();
-            console.log('CSV данные (полные):', csvText);
+            console.log('CSV данные (первые 500 символов):', csvText.substring(0, 500));
             
             return this.parseCSV(csvText);
         } catch (error) {
@@ -300,14 +364,13 @@ class ScheduleApp {
 
     processCSVData(data, sheetName) {
         console.log('=== ОБРАБОТКА CSV ДАННЫХ ===');
-        console.log('Все данные:', data);
         
         if (!data || data.length === 0) {
             console.warn('Нет CSV данных');
-            return;
+            return {};
         }
         
-        this.scheduleData = {};
+        const monthData = {};
         
         // Ищем строку с последовательностью чисел от 1 до 28
         const dateRowIndex = this.findDateRowBySequence(data);
@@ -315,7 +378,7 @@ class ScheduleApp {
         
         if (dateRowIndex === -1) {
             console.warn('Не удалось найти строку с датами');
-            return;
+            return {};
         }
         
         const dateRow = data[dateRowIndex];
@@ -324,7 +387,7 @@ class ScheduleApp {
         
         if (dates.length === 0) {
             console.warn('Не найдено дат в строке');
-            return;
+            return {};
         }
         
         // Все строки ниже - сотрудники
@@ -358,16 +421,12 @@ class ScheduleApp {
             }
             
             if (shifts.length > 0) {
-                this.scheduleData[employeeName] = shifts;
+                monthData[employeeName] = shifts;
             }
         }
         
-        console.log('Итоговые данные графика:', this.scheduleData);
-        
-        if (Object.keys(this.scheduleData).length > 0) {
-            document.getElementById('loading').classList.add('hidden');
-            document.getElementById('main-content').classList.remove('hidden');
-        }
+        console.log('Данные месяца:', monthData);
+        return monthData;
     }
 
     findDateRowBySequence(data) {
@@ -377,8 +436,6 @@ class ScheduleApp {
             const row = data[rowIndex];
             if (!row) continue;
             
-            console.log(`=== ПРОВЕРЯЕМ СТРОКУ ${rowIndex}:`, row);
-            
             // Собираем все числа из строки
             const numbersInRow = [];
             for (let colIndex = 0; colIndex < row.length; colIndex++) {
@@ -387,8 +444,6 @@ class ScheduleApp {
                     numbersInRow.push(number);
                 }
             }
-            
-            console.log(`Числа в строке ${rowIndex}:`, numbersInRow);
             
             // Проверяем, содержит ли строка последовательность от 1 до 28
             if (this.containsSequence(numbersInRow, targetSequence)) {
@@ -511,11 +566,12 @@ class ScheduleApp {
         
         if (!data.table || !data.table.rows) {
             console.warn('Нет данных в таблице gviz');
-            return;
+            return {};
         }
         
         const rows = data.table.rows;
         const dates = [];
+        const monthData = {};
         
         if (rows[0] && rows[0].c) {
             for (let i = 1; i < rows[0].c.length; i++) {
@@ -531,16 +587,12 @@ class ScheduleApp {
         
         console.log('Даты в таблице gviz:', dates);
         
-        this.scheduleData = {};
-        
         for (let i = 1; i < rows.length; i++) {
             const row = rows[i];
             if (!row.c || !row.c[0] || row.c[0].v === null) continue;
             
             const employeeName = this.extractEmployeeName(row.c[0].v.toString());
             if (!employeeName) continue;
-            
-            console.log(`Обрабатываем сотрудника Gviz: "${employeeName}"`);
             
             const shifts = [];
             for (let j = 1; j < row.c.length; j++) {
@@ -560,24 +612,16 @@ class ScheduleApp {
             }
             
             if (shifts.length > 0) {
-                this.scheduleData[employeeName] = shifts;
-                console.log(`Сотрудник Gviz: ${employeeName}, смен: ${shifts.length}`);
+                monthData[employeeName] = shifts;
             }
         }
         
-        console.log('Итоговые данные графика gviz:', this.scheduleData);
+        console.log('Данные месяца gviz:', monthData);
+        return monthData;
     }
 
     getCurrentMonthSheetName() {
-        const months = [
-            'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-            'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
-        ];
-        
-        const currentYear = this.currentDate.getFullYear();
-        const currentMonth = this.currentDate.getMonth();
-        
-        return `${months[currentMonth]} ${currentYear.toString().slice(2)}`;
+        return this.getMonthSheetNameForDate(this.currentDate);
     }
 
     initializeEventListeners() {
@@ -629,7 +673,7 @@ class ScheduleApp {
         this.isMonthView = !this.isMonthView;
         const toggleBtn = document.getElementById('toggle-view');
         toggleBtn.textContent = this.isMonthView ? '▲' : '▼';
-        this.render();
+        this.loadScheduleData().then(() => this.render());
     }
 
     async toggleFilter(showOnlyMine) {
@@ -648,11 +692,6 @@ class ScheduleApp {
 
     render() {
         console.log('=== RENDER START ===');
-        console.log('Глобальная фильтрация:', this.globalFilterSettings.showOnlyRegistered);
-        console.log('Моя фильтрация:', this.filterSettings.showOnlyMine);
-        console.log('Зарегистрированные сотрудники:', this.registeredEmployees);
-        console.log('Привязанные сотрудники:', this.userAttachments);
-        console.log('Данные графика:', this.scheduleData);
         
         this.updateNavigation();
         this.renderMonthNavigation();
@@ -823,31 +862,74 @@ class ScheduleApp {
         const weekStart = new Date(this.currentDate);
         weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
         
-        let html = '<div class="calendar-grid">';
+        let html = '<div class="calendar-grid week-view-grid">';
         
-        html += '<div class="week-header"></div>';
+        // Заголовки дней
+        html += '<div class="week-header employee-header"></div>';
         for (let i = 0; i < 7; i++) {
             const day = new Date(weekStart);
             day.setDate(day.getDate() + i);
-            html += `<div class="week-header">${this.getDayName(day)}<br>${day.getDate()}</div>`;
+            const monthName = this.getMonthName(day.getMonth());
+            html += `<div class="week-header">${this.getDayName(day)}<br>${day.getDate()} ${monthName}</div>`;
         }
         
+        // Разделяем сотрудников на "моих" и "остальных"
+        const myEmployees = [];
+        const otherEmployees = [];
+        
         employeesToShow.forEach(employee => {
+            if (this.userAttachments.includes(employee)) {
+                myEmployees.push(employee);
+            } else {
+                otherEmployees.push(employee);
+            }
+        });
+        
+        console.log('Мои сотрудники:', myEmployees);
+        console.log('Остальные сотрудники:', otherEmployees);
+        
+        // Сначала отображаем "моих" сотрудников
+        myEmployees.forEach(employee => {
+            html += `<div class="week-time-cell my-employee">${employee}</div>`;
+            
+            for (let i = 0; i < 7; i++) {
+                const day = new Date(weekStart);
+                day.setDate(day.getDate() + i);
+                const dayNumber = day.getDate();
+                const dayMonth = this.getMonthSheetNameForDate(day);
+                
+                html += `<div class="week-day">`;
+                
+                // Получаем смены из правильного месяца
+                const shifts = this.getShiftsForDay(employee, dayNumber, dayMonth);
+                
+                shifts.forEach(shift => {
+                    const color = this.getEmployeeColor(employee);
+                    html += this.renderShift(shift, color, true); // true - моя смена
+                });
+                
+                html += `</div>`;
+            }
+        });
+        
+        // Затем отображаем "остальных" сотрудников
+        otherEmployees.forEach(employee => {
             html += `<div class="week-time-cell">${employee}</div>`;
             
             for (let i = 0; i < 7; i++) {
                 const day = new Date(weekStart);
                 day.setDate(day.getDate() + i);
                 const dayNumber = day.getDate();
+                const dayMonth = this.getMonthSheetNameForDate(day);
                 
                 html += `<div class="week-day">`;
                 
-                const shifts = this.scheduleData[employee] || [];
-                const dayShifts = shifts.filter(shift => shift.date === dayNumber);
+                // Получаем смены из правильного месяца
+                const shifts = this.getShiftsForDay(employee, dayNumber, dayMonth);
                 
-                dayShifts.forEach(shift => {
+                shifts.forEach(shift => {
                     const color = this.getEmployeeColor(employee);
-                    html += this.renderShift(shift, color);
+                    html += this.renderShift(shift, color, false); // false - не моя смена
                 });
                 
                 html += `</div>`;
@@ -856,6 +938,29 @@ class ScheduleApp {
         
         html += '</div>';
         weekView.innerHTML = html;
+    }
+
+    getShiftsForDay(employee, dayNumber, monthSheet) {
+        // Сначала проверяем основной scheduleData
+        const employeeShifts = this.scheduleData[employee];
+        if (employeeShifts) {
+            return employeeShifts.filter(shift => 
+                shift.date === dayNumber && shift.month === monthSheet
+            );
+        }
+        
+        // Если не нашли, проверяем multiMonthData
+        const monthData = this.multiMonthData[monthSheet];
+        if (monthData && monthData[employee]) {
+            return monthData[employee].filter(shift => shift.date === dayNumber);
+        }
+        
+        return [];
+    }
+
+    getMonthName(monthIndex) {
+        const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+        return months[monthIndex];
     }
 
     renderMonthView(employeesToShow) {
@@ -889,15 +994,28 @@ class ScheduleApp {
             html += `<div class="month-day ${isToday ? 'today' : ''}">`;
             html += `<div class="day-number">${day}</div>`;
             
+            // Разделяем смены на "мои" и "остальные"
+            const myShifts = [];
+            const otherShifts = [];
+            
             employeesToShow.forEach(employee => {
                 const shifts = this.scheduleData[employee] || [];
                 const dayShifts = shifts.filter(shift => shift.date === day);
                 
                 dayShifts.forEach(shift => {
                     const color = this.getEmployeeColor(employee);
-                    html += this.renderShift(shift, color);
+                    const shiftHtml = this.renderShift(shift, color, this.userAttachments.includes(employee));
+                    if (this.userAttachments.includes(employee)) {
+                        myShifts.push(shiftHtml);
+                    } else {
+                        otherShifts.push(shiftHtml);
+                    }
                 });
             });
+            
+            // Сначала отображаем "мои" смены, потом "остальные"
+            html += myShifts.join('');
+            html += otherShifts.join('');
             
             html += `</div>`;
         }
@@ -906,10 +1024,11 @@ class ScheduleApp {
         monthView.innerHTML = html;
     }
 
-    renderShift(shift, color) {
+    renderShift(shift, color, isMyShift = false) {
+        const shiftClass = isMyShift ? 'shift-parallelogram my-shift' : 'shift-parallelogram other-shift';
         const hsl = `hsl(${color.h}, ${color.s}%, ${color.l}%)`;
         return `
-            <div class="shift-parallelogram" style="background-color: ${hsl}">
+            <div class="${shiftClass}" style="background-color: ${hsl}">
                 <div class="shift-content">
                     ${shift.hours > 1 ? shift.hours + 'ч' : ''}
                 </div>
@@ -919,7 +1038,6 @@ class ScheduleApp {
 
     getFilteredEmployees() {
         const allEmployees = Object.keys(this.scheduleData);
-        console.log('Все сотрудники из таблицы:', allEmployees);
         
         let filtered = allEmployees;
         
@@ -927,14 +1045,12 @@ class ScheduleApp {
             filtered = filtered.filter(employee => 
                 this.registeredEmployees.includes(employee)
             );
-            console.log('После глобальной фильтрации:', filtered);
         }
         
         if (this.filterSettings.showOnlyMine && this.user) {
             filtered = filtered.filter(employee => 
                 this.userAttachments.includes(employee)
             );
-            console.log('После персональной фильтрации:', filtered);
         }
         
         return filtered;
@@ -1001,7 +1117,6 @@ class ScheduleApp {
 
     async loadGlobalFilterSettings() {
         this.globalFilterSettings = await firebaseService.getGlobalFilterSettings();
-        console.log('Глобальные настройки фильтра:', this.globalFilterSettings);
     }
 }
 
