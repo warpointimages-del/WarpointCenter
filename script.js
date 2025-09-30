@@ -13,6 +13,7 @@ class ScheduleApp {
         this.registeredEmployees = [];
         this.userAttachments = [];
         this.allUsers = {};
+        this.allAttachments = {};
         this.showColorPicker = false;
         
         this.init();
@@ -26,6 +27,7 @@ class ScheduleApp {
             
             await this.initializeUser();
             await this.loadAllUsers();
+            await this.loadAllAttachments();
             await this.loadRegisteredEmployees();
             await this.loadUserAttachments();
             await this.loadFilterSettings();
@@ -77,6 +79,11 @@ class ScheduleApp {
     async loadAllUsers() {
         this.allUsers = await firebaseService.getAllUsers();
         console.log('Все пользователи:', this.allUsers);
+    }
+
+    async loadAllAttachments() {
+        this.allAttachments = await firebaseService.getAllAttachments();
+        console.log('Все привязки:', this.allAttachments);
     }
 
     async loadRegisteredEmployees() {
@@ -683,7 +690,7 @@ class ScheduleApp {
         
         colorPicker.innerHTML = `
             <div class="color-picker-header">
-                <span>Цвет отображения</span>
+                <span>Цвет ваших смен в графике</span>
                 <button id="toggle-color-picker" class="toggle-color-btn">
                     ${this.showColorPicker ? '▲' : '▼'}
                 </button>
@@ -934,17 +941,18 @@ class ScheduleApp {
     }
 
     getEmployeeColor(employeeName) {
-        // Ищем пользователя, которому принадлежит этот сотрудник
-        for (const userId in this.allUsers) {
-            const user = this.allUsers[userId];
-            const userAttachments = this.userAttachmentsCache || {};
-            
-            if (userAttachments[userId] && userAttachments[userId].includes(employeeName)) {
-                return user.color || this.generateColorFromName(employeeName);
+        // Ищем пользователя, которому привязан этот сотрудник
+        for (const userId in this.allAttachments) {
+            const attachedEmployees = this.allAttachments[userId];
+            if (attachedEmployees.includes(employeeName)) {
+                const user = this.allUsers[userId];
+                if (user && user.color) {
+                    return user.color;
+                }
             }
         }
         
-        // Если не нашли, генерируем цвет из имени
+        // Если сотрудник не привязан ни к кому, используем цвет по умолчанию
         return this.generateColorFromName(employeeName);
     }
 
