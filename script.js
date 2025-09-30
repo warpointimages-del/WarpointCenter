@@ -320,21 +320,49 @@ class ScheduleApp {
     }
 
     parseCSV(csvText) {
-        const lines = csvText.split('\n').filter(line => line.trim());
         const result = [];
+        let current = '';
+        let inQuotes = false;
+        let row = [];
         
-        for (let line of lines) {
-            const cells = line.split(',');
+        for (let i = 0; i < csvText.length; i++) {
+            const char = csvText[i];
+            const nextChar = csvText[i + 1];
             
-            const cleanedCells = cells.map(cell => {
-                let cleaned = cell.replace(/^["']|["']$/g, '');
-                cleaned = cleaned.trim();
-                return cleaned;
-            });
-            
-            result.push(cleanedCells);
+            if (char === '"') {
+                if (inQuotes && nextChar === '"') {
+                    // Экранированная кавычка внутри кавычек
+                    current += '"';
+                    i++; // Пропускаем следующую кавычку
+                } else {
+                    // Начало или конец кавычек
+                    inQuotes = !inQuotes;
+                }
+            } else if (char === ',' && !inQuotes) {
+                // Конец ячейки
+                row.push(current.trim());
+                current = '';
+            } else if (char === '\n' && !inQuotes) {
+                // Конец строки
+                row.push(current.trim());
+                result.push(row);
+                row = [];
+                current = '';
+            } else if (char === '\r') {
+                // Игнорируем carriage return
+                continue;
+            } else {
+                current += char;
+            }
         }
         
+        // Добавляем последнюю ячейку если есть
+        if (current.trim() || row.length > 0) {
+            row.push(current.trim());
+            result.push(row);
+        }
+        
+        console.log('Парсинг CSV результат:', result);
         return result;
     }
 
