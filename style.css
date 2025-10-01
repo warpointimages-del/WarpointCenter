@@ -17,7 +17,10 @@ body {
 }
 
 #app {
-    padding: 10px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: #121212;
 }
 
 #loading {
@@ -34,17 +37,124 @@ body {
     font-style: italic;
 }
 
-/* Админская панель */
-#admin-panel {
-    background-color: #1e1e1e;
-    padding: 15px;
-    margin-bottom: 15px;
-    border: 1px solid #333;
+/* Страницы */
+.page {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
-#admin-panel h3 {
-    margin-bottom: 10px;
+.page-header {
+    background-color: #1e1e1e;
+    padding: 15px;
+    border-bottom: 1px solid #333;
+}
+
+.page-header h1 {
     color: #fff;
+    font-size: 20px;
+    margin: 0;
+    text-align: center;
+}
+
+.page-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    padding-bottom: 70px;
+}
+
+/* Состояние пустой страницы */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #888;
+}
+
+.empty-icon {
+    font-size: 48px;
+    margin-bottom: 20px;
+}
+
+.empty-state h3 {
+    color: #fff;
+    margin-bottom: 10px;
+}
+
+.empty-state p {
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+/* Секции профиля */
+.user-info-section {
+    background-color: #1e1e1e;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.user-avatar .avatar-placeholder {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bold;
+    color: white;
+}
+
+.user-details h2 {
+    color: #fff;
+    margin: 0 0 5px 0;
+    font-size: 18px;
+}
+
+.user-details p {
+    color: #888;
+    margin: 0 0 8px 0;
+    font-size: 14px;
+}
+
+.user-status {
+    background-color: #2a2a2a;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    color: #4CAF50;
+    display: inline-block;
+}
+
+.settings-section {
+    background-color: #1e1e1e;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+}
+
+.settings-section h3 {
+    color: #fff;
+    margin: 0 0 15px 0;
+    font-size: 16px;
+}
+
+.filter-settings {
+    padding: 10px 0;
+}
+
+/* Админская панель */
+#admin-panel-content {
+    background-color: #2a2a2a;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
 }
 
 .user-item {
@@ -198,6 +308,7 @@ body {
     margin-bottom: 15px;
     padding: 10px;
     background-color: #1e1e1e;
+    border-radius: 12px;
 }
 
 .checkbox-container {
@@ -217,6 +328,7 @@ body {
     background-color: #333;
     margin-right: 8px;
     position: relative;
+    border-radius: 3px;
 }
 
 .checkbox-container input:checked + .checkmark::after {
@@ -234,22 +346,7 @@ body {
     padding: 10px;
     margin: 10px 0;
     background-color: #2a2a2a;
-}
-
-.color-picker-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 5px;
-}
-
-.toggle-color-btn {
-    background: none;
-    border: none;
-    color: #fff;
-    cursor: pointer;
-    font-size: 12px;
-    padding: 2px 5px;
+    border-radius: 8px;
 }
 
 .color-preview {
@@ -264,15 +361,17 @@ body {
 }
 
 .slider-container span:first-child {
-    width: 15px;
-    text-align: center;
-    font-weight: bold;
+    width: 80px;
+    text-align: left;
+    font-size: 12px;
+    color: #ccc;
 }
 
 .slider-container span:last-child {
     width: 40px;
     text-align: right;
     font-size: 12px;
+    color: #ccc;
 }
 
 .slider-container input {
@@ -281,6 +380,7 @@ body {
     background: #333;
     outline: none;
     -webkit-appearance: none;
+    border-radius: 2px;
 }
 
 .slider-container input::-webkit-slider-thumb {
@@ -289,6 +389,7 @@ body {
     height: 14px;
     background: #fff;
     cursor: pointer;
+    border-radius: 50%;
 }
 
 .slider-container input::-moz-range-thumb {
@@ -297,6 +398,7 @@ body {
     background: #fff;
     cursor: pointer;
     border: none;
+    border-radius: 50%;
 }
 
 /* Навигация */
@@ -306,6 +408,10 @@ body {
     justify-content: space-between;
     margin-bottom: 10px;
     padding: 0 10px;
+    background-color: #1e1e1e;
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 15px;
 }
 
 .nav-btn {
@@ -315,6 +421,7 @@ body {
     padding: 8px 12px;
     cursor: pointer;
     font-size: 16px;
+    border-radius: 6px;
 }
 
 .nav-btn:disabled {
@@ -328,18 +435,21 @@ body {
 }
 
 .toggle-btn {
-    background-color: #333;
-    border: none;
+    background-color: #1e1e1e;
+    border: 1px solid #333;
     color: #fff;
-    padding: 8px;
+    padding: 12px;
     cursor: pointer;
     width: 100%;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
+    border-radius: 8px;
 }
 
 /* Календарь */
 #calendar-container {
     background-color: #1e1e1e;
+    border-radius: 12px;
+    overflow: hidden;
 }
 
 .calendar-grid {
@@ -412,7 +522,7 @@ body {
     font-weight: bold;
 }
 
-/* Параллелограммы смен - ИСПРАВЛЕНЫ РАЗМЕРЫ */
+/* Параллелограммы смен */
 .shift-parallelogram {
     margin: 1px 0;
     transform: skew(-15deg);
@@ -425,12 +535,12 @@ body {
 }
 
 .shift-parallelogram.my-shift {
-    height: 24px; /* Большой размер для моих смен */
+    height: 24px;
     margin: 2px 0;
 }
 
 .shift-parallelogram.other-shift {
-    height: 16px; /* Меньший размер для чужих смен */
+    height: 16px;
     margin: 1px 0;
 }
 
@@ -443,139 +553,6 @@ body {
     font-size: 10px;
     color: #fff;
     width: 100%;
-}
-
-/* Глобальный фильтр */
-.global-filter {
-    margin-bottom: 15px;
-    padding: 10px;
-    background-color: #2a2a2a;
-    border-left: 3px solid #007acc;
-}
-
-.global-filter .checkbox-container {
-    font-weight: bold;
-    color: #fff;
-}
-/* Основные стили остаются прежними, добавляем новые */
-
-#app {
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    background-color: #121212;
-}
-
-/* Страницы */
-.page {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-.page-header {
-    background-color: #1e1e1e;
-    padding: 15px;
-    border-bottom: 1px solid #333;
-}
-
-.page-header h1 {
-    color: #fff;
-    font-size: 20px;
-    margin: 0;
-    text-align: center;
-}
-
-.page-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 15px;
-    padding-bottom: 70px; /* Для нижнего меню */
-}
-
-/* Состояние пустой страницы */
-.empty-state {
-    text-align: center;
-    padding: 60px 20px;
-    color: #888;
-}
-
-.empty-icon {
-    font-size: 48px;
-    margin-bottom: 20px;
-}
-
-.empty-state h3 {
-    color: #fff;
-    margin-bottom: 10px;
-}
-
-.empty-state p {
-    font-size: 14px;
-    line-height: 1.4;
-}
-
-/* Секции профиля */
-.user-info-section {
-    background-color: #1e1e1e;
-    padding: 20px;
-    border-radius: 12px;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.user-avatar .avatar-placeholder {
-    width: 60px;
-    height: 60px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    font-weight: bold;
-    color: white;
-}
-
-.user-details h2 {
-    color: #fff;
-    margin: 0 0 5px 0;
-    font-size: 18px;
-}
-
-.user-details p {
-    color: #888;
-    margin: 0 0 8px 0;
-    font-size: 14px;
-}
-
-.user-status {
-    background-color: #2a2a2a;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    color: #4CAF50;
-    display: inline-block;
-}
-
-.settings-section {
-    background-color: #1e1e1e;
-    padding: 20px;
-    border-radius: 12px;
-    margin-bottom: 15px;
-}
-
-.settings-section h3 {
-    color: #fff;
-    margin: 0 0 15px 0;
-    font-size: 16px;
-}
-
-.filter-settings {
-    padding: 10px 0;
 }
 
 /* Нижнее меню */
@@ -625,53 +602,6 @@ body {
     font-size: 12px;
     color: #888;
     transition: color 0.3s ease;
-}
-
-/* Адаптация существующих стилей под новую структуру */
-#filters-panel {
-    background-color: #1e1e1e;
-    padding: 15px;
-    border-radius: 12px;
-    margin-bottom: 15px;
-}
-
-#navigation {
-    background-color: #1e1e1e;
-    padding: 15px;
-    border-radius: 12px;
-    margin-bottom: 10px;
-}
-
-.toggle-btn {
-    background-color: #1e1e1e;
-    border: 1px solid #333;
-    color: #fff;
-    padding: 12px;
-    cursor: pointer;
-    width: 100%;
-    margin-bottom: 15px;
-    border-radius: 8px;
-}
-
-#calendar-container {
-    background-color: #1e1e1e;
-    border-radius: 12px;
-    overflow: hidden;
-}
-
-/* Админская панель в профиле */
-#admin-panel-content {
-    background-color: #2a2a2a;
-    padding: 15px;
-    border-radius: 8px;
-    margin-top: 15px;
-}
-
-/* Цветовой пикер в профиле */
-#color-picker-container .color-picker {
-    background-color: #2a2a2a;
-    border: 1px solid #333;
-    margin-top: 10px;
 }
 
 /* Адаптация для маленьких экранов */
