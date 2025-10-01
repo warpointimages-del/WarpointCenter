@@ -64,6 +64,7 @@ class FirebaseService {
                 firstName: userData.firstName || '',
                 lastName: userData.lastName || '',
                 isAdmin: userData.isAdmin || false,
+                position: userData.position || 'Стажёр',
                 color: userData.color || { h: 200, s: 80, l: 60 },
                 createdAt: Date.now()
             });
@@ -110,6 +111,16 @@ class FirebaseService {
             return true;
         } catch (error) {
             console.error('Ошибка обновления цвета пользователя:', error);
+            return false;
+        }
+    }
+
+    async updateUserPosition(userId, position) {
+        try {
+            await update(ref(this.db, `users/${userId}/position`), position);
+            return true;
+        } catch (error) {
+            console.error('Ошибка обновления должности пользователя:', error);
             return false;
         }
     }
