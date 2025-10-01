@@ -1023,3 +1023,112 @@ body {
     text-align: center;
     width: 40px;
 }
+
+/* Стили для админ-панели */
+.control-section {
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: #2a2a2a;
+    border-radius: 8px;
+}
+
+.control-section h5 {
+    margin: 0 0 8px 0;
+    color: #fff;
+    font-size: 14px;
+    font-family: 'Montserrat', Arial, sans-serif;
+}
+
+.current-position {
+    margin: 8px 0;
+    padding: 5px;
+    background-color: #333;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.current-position strong {
+    color: #4CAF50;
+}
+
+.position-select {
+    width: 100%;
+    background-color: #333;
+    border: 1px solid #555;
+    color: #fff;
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.position-select:focus {
+    outline: none;
+    border-color: #007acc;
+}
+
+.user-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 280px;
+}
+
+.name-input-group {
+    display: flex;
+    gap: 5px;
+}
+
+.employee-select {
+    flex: 1;
+    background-color: #333;
+    border: 1px solid #555;
+    color: #fff;
+    padding: 8px;
+    border-radius: 6px;
+    min-width: 150px;
+}
+
+.link-btn {
+    background-color: #4d4949;
+    border: none;
+    color: #fff;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    white-space: nowrap;
+    border-radius: 6px;
+}
+
+.link-btn:hover {
+    background-color: #5a5656;
+}
+
+.user-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 15px;
+    border-bottom: 1px solid #333;
+    gap: 20px;
+    background-color: #2a2a2a;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.user-info {
+    flex: 1;
+}
+
+.user-info strong {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 16px;
+    font-family: 'Montserrat', Arial, sans-serif;
+    color: #fff;
+}
+
+.user-info div {
+    margin-bottom: 5px;
+    color: #ccc;
+    font-size: 13px;
+}
