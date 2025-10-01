@@ -4,7 +4,7 @@ class AdminPanel {
     constructor() {
         this.users = {};
         this.registeredEmployees = [];
-        this.userAttachments = {}; // {userId: [employeeName1, employeeName2]}
+        this.userAttachments = {};
         setTimeout(() => this.init(), 100);
     }
 
@@ -55,6 +55,7 @@ class AdminPanel {
                     <div>@${user.username || 'нет username'}</div>
                     <div>ID: ${user.id}</div>
                     <div class="current-position">Текущая должность: <strong>${user.position || 'Стажёр'}</strong></div>
+                    ${user.displayName ? `<div class="current-position">Отображаемое имя: <strong>${user.displayName}</strong></div>` : ''}
                     <div class="attached-names">
                         <strong>Привязанные сотрудники:</strong>
                         ${userAttachments.length > 0 
@@ -79,6 +80,21 @@ class AdminPanel {
                             </select>
                             <button class="link-btn" onclick="adminPanel.attachEmployee('${user.id}')">Привязать</button>
                         </div>
+                    </div>
+                    
+                    <div class="control-section">
+                        <h5>Настройка отображаемого имени</h5>
+                        <div class="name-input-group">
+                            <input type="text" 
+                                   class="display-name-input" 
+                                   id="display-name-${user.id}"
+                                   value="${user.displayName || ''}"
+                                   placeholder="Имя для отображения в графике">
+                            <button class="link-btn" onclick="adminPanel.updateDisplayName('${user.id}')">Сохранить</button>
+                        </div>
+                        <small style="color: #888; margin-top: 5px; display: block;">
+                            Это имя будет отображаться вместо всех привязанных сотрудников
+                        </small>
                     </div>
                     
                     <div class="control-section">
@@ -120,7 +136,6 @@ class AdminPanel {
         
         employeesSection.innerHTML = '<h4>Зарегистрированные сотрудники</h4>';
         
-        // Форма добавления нового сотрудника
         const addForm = document.createElement('div');
         addForm.className = 'add-employee-form';
         addForm.innerHTML = `
@@ -129,7 +144,6 @@ class AdminPanel {
         `;
         employeesSection.appendChild(addForm);
         
-        // Список сотрудников
         const list = document.createElement('div');
         list.className = 'employees-list';
         
@@ -206,13 +220,6 @@ class AdminPanel {
             alert('Ошибка при добавлении сотрудника');
         }
     }
-
-    async updateAvailableMonths() {
-        if (window.scheduleApp) {
-            await window.scheduleApp.loadAvailableMonths();
-            window.scheduleApp.renderMonthNavigation();
-        }
-    }
     
     async removeEmployee(employeeName) {
         const success = await firebaseService.removeRegisteredEmployee(employeeName);
@@ -238,12 +245,23 @@ class AdminPanel {
         this.updateScheduleApp();
     }
 
+    async updateDisplayName(userId) {
+        const input = document.getElementById(`display-name-${userId}`);
+        const displayName = input.value.trim();
+        
+        await firebaseService.updateUserDisplayName(userId, displayName);
+        this.users[userId].displayName = displayName;
+        this.renderUsersList();
+        this.updateScheduleApp();
+    }
+
     updateScheduleApp() {
         if (window.scheduleApp) {
             window.scheduleApp.loadRegisteredEmployees().then(() => {
                 window.scheduleApp.loadUserAttachments().then(() => {
                     window.scheduleApp.loadAllUsers().then(() => {
                         window.scheduleApp.render();
+                        window.scheduleApp.renderCurrentShift();
                     });
                 });
             });
