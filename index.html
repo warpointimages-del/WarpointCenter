@@ -4,6 +4,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WorkSchedule</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script type="module" src="firebase.js"></script>
     <script type="module" src="admin-panel.js"></script>
@@ -59,6 +60,7 @@
                     <div id="calendar-container">
                         <div id="week-view"></div>
                         <div id="month-view" class="hidden"></div>
+                        <!-- Контейнер для карточек смен будет добавляться динамически -->
                     </div>
                 </div>
             </div>
@@ -72,8 +74,8 @@
                     <!-- Информация о пользователе -->
                     <div class="user-info-section">
                         <div class="user-avatar">
-                            <div class="avatar-placeholder">
-                                ${this.user?.firstName?.charAt(0) || 'U'}
+                            <div class="avatar-placeholder" id="user-avatar-placeholder">
+                                U
                             </div>
                         </div>
                         <div class="user-details">
@@ -114,7 +116,7 @@
         </div>
 
         <!-- Нижнее меню -->
-        <div id="bottom-navigation">
+        <div id="bottom-navigation" class="hidden">
             <div class="nav-item" data-page="tasks">
                 <div class="nav-icon">📋</div>
                 <div class="nav-label">Задачи</div>
