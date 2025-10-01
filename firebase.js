@@ -58,16 +58,19 @@ class FirebaseService {
 
     async saveUser(userData) {
         try {
-            await set(ref(this.db, 'users/' + userData.id), {
+            const userToSave = {
                 id: userData.id,
                 username: userData.username || '',
                 firstName: userData.firstName || '',
                 lastName: userData.lastName || '',
                 isAdmin: userData.isAdmin || false,
                 position: userData.position || 'Стажёр',
+                displayName: userData.displayName || '',
                 color: userData.color || { h: 200, s: 80, l: 60 },
                 createdAt: Date.now()
-            });
+            };
+            
+            await set(ref(this.db, 'users/' + userData.id), userToSave);
             return true;
         } catch (error) {
             console.error('Ошибка сохранения пользователя:', error);
@@ -117,10 +120,20 @@ class FirebaseService {
 
     async updateUserPosition(userId, position) {
         try {
-            await update(ref(this.db, `users/${userId}/position`), position);
+            await update(ref(this.db, `users/${userId}/position`), { position });
             return true;
         } catch (error) {
             console.error('Ошибка обновления должности пользователя:', error);
+            return false;
+        }
+    }
+
+    async updateUserDisplayName(userId, displayName) {
+        try {
+            await update(ref(this.db, `users/${userId}/displayName`), { displayName });
+            return true;
+        } catch (error) {
+            console.error('Ошибка обновления отображаемого имени:', error);
             return false;
         }
     }
