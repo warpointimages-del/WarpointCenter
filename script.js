@@ -167,7 +167,7 @@ class ScheduleApp {
         }
     }
 
-    // === МЕТОДЫ ДЛЯ ОТОБРАЖАЕМЫХ ИМЕН ===
+    // === МЕТОДЫ ДЛЯ ОТОБРАЖАЕМЫХ ИМЕН И ЦВЕТОВ ДОЛЖНОСТЕЙ ===
 
     getEmployeeDisplayName(employeeName) {
         for (const userId in this.allAttachments) {
@@ -182,10 +182,17 @@ class ScheduleApp {
         return null;
     }
 
+    getEmployeePositionClass(employeeName) {
+        const position = this.getEmployeePosition(employeeName);
+        // Заменяем пробелы на дефисы для CSS класса
+        return `position-${position.toLowerCase().replace(/\s+/g, '-')}`;
+    }
+
     getEmployeeDisplayNameForSchedule(employeeName) {
         const displayName = this.getEmployeeDisplayName(employeeName);
         if (displayName) {
-            return `<span class="employee-display-name" title="${employeeName}">${displayName}</span>`;
+            const positionClass = this.getEmployeePositionClass(employeeName);
+            return `<span class="employee-display-name ${positionClass}" title="${employeeName}">${displayName}</span>`;
         }
         return employeeName;
     }
