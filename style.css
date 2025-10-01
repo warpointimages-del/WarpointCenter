@@ -11,6 +11,7 @@ body {
     font-size: 14px;
     line-height: 1.4;
     overflow-x: hidden;
+    max-width: 100vw;
 }
 
 .hidden {
@@ -22,6 +23,10 @@ body {
     min-height: 100vh;
     background-color: #1b1b1b;
     padding: 10px;
+    max-width: 375px;
+    margin: 0 auto;
+    width: 100%;
+    overflow-x: hidden;
 }
 
 /* Декоративные элементы из Figma */
@@ -117,12 +122,15 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    width: 100%;
+    max-width: 100%;
 }
 
 .page-header {
     background-color: transparent;
     padding: 15px 0;
     margin-bottom: 10px;
+    width: 100%;
 }
 
 .page-header h1 {
@@ -137,6 +145,8 @@ body {
     flex: 1;
     overflow-y: auto;
     padding: 0 5px 70px 5px;
+    width: 100%;
+    max-width: 100%;
 }
 
 /* Состояние пустой страницы */
@@ -170,6 +180,7 @@ body {
     display: flex;
     align-items: center;
     gap: 15px;
+    width: 100%;
 }
 
 .user-avatar .avatar-placeholder {
@@ -212,6 +223,7 @@ body {
     padding: 20px;
     border-radius: 18px;
     margin-bottom: 15px;
+    width: 100%;
 }
 
 .settings-section h3 {
@@ -231,15 +243,20 @@ body {
     padding: 15px;
     border-radius: 12px;
     margin-top: 15px;
+    width: 100%;
 }
 
 .user-item {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    padding: 12px;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 15px;
     border-bottom: 1px solid #333;
     gap: 15px;
+    background-color: #2a2a2a;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    width: 100%;
 }
 
 .user-info {
@@ -248,53 +265,109 @@ body {
 
 .user-info strong {
     display: block;
-    margin-bottom: 5px;
+    margin-bottom: 8px;
     font-size: 16px;
     font-family: 'Montserrat', Arial, sans-serif;
+    color: #fff;
+}
+
+.user-info div {
+    margin-bottom: 5px;
+    color: #ccc;
+    font-size: 13px;
 }
 
 .user-controls {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    min-width: 200px;
+    gap: 15px;
+    width: 100%;
+}
+
+.control-section {
+    margin-bottom: 0;
+    padding: 12px;
+    background-color: #333;
+    border-radius: 8px;
+    width: 100%;
+}
+
+.control-section h5 {
+    margin: 0 0 10px 0;
+    color: #fff;
+    font-size: 14px;
+    font-family: 'Montserrat', Arial, sans-serif;
+}
+
+.current-position {
+    margin: 8px 0;
+    padding: 8px;
+    background-color: #333;
+    border-radius: 6px;
+    font-size: 13px;
+    border-left: 3px solid #4CAF50;
+}
+
+.current-position strong {
+    color: #4CAF50;
+}
+
+.position-select {
+    width: 100%;
+    background-color: #444;
+    border: 1px solid #555;
+    color: #fff;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.position-select:focus {
+    outline: none;
+    border-color: #007acc;
 }
 
 .name-input-group {
     display: flex;
-    gap: 5px;
+    gap: 8px;
+    width: 100%;
 }
 
-.employee-select, .position-select {
+.employee-select {
     flex: 1;
-    background-color: #333;
+    background-color: #444;
     border: 1px solid #555;
     color: #fff;
-    padding: 5px;
-    min-width: 150px;
+    padding: 10px;
     border-radius: 6px;
+    min-width: 120px;
 }
 
-.link-btn, .unlink-btn {
+.link-btn {
     background-color: #4d4949;
     border: none;
     color: #fff;
-    padding: 5px 10px;
+    padding: 10px 15px;
     cursor: pointer;
     font-size: 12px;
     white-space: nowrap;
     border-radius: 6px;
+    min-width: 80px;
 }
 
-.link-btn:hover, .unlink-btn:hover {
+.link-btn:hover {
     background-color: #5a5656;
 }
 
 .unlink-btn {
-    margin-left: 5px;
-    padding: 1px 5px;
+    background-color: #ff4444;
+    border: none;
+    color: white;
+    padding: 2px 6px;
+    cursor: pointer;
     border-radius: 50%;
     font-size: 10px;
+    margin-left: 5px;
 }
 
 .attached-names {
@@ -309,7 +382,7 @@ body {
 .attached-name {
     display: inline-block;
     background-color: #333;
-    padding: 3px 8px;
+    padding: 4px 8px;
     margin: 3px 5px 3px 0;
     border-radius: 4px;
     font-size: 11px;
@@ -323,24 +396,22 @@ body {
 }
 
 .admin-control {
-    margin-top: 8px;
+    margin-top: 0;
 }
 
 .admin-checkbox {
-    margin-right: 5px;
+    margin-right: 8px;
 }
 
-.position-control {
-    margin-top: 8px;
-}
-
-.position-control select {
-    background-color: #333;
+.display-name-input {
+    width: 100%;
+    background-color: #444;
     border: 1px solid #555;
     color: #fff;
-    padding: 4px;
-    border-radius: 4px;
-    font-size: 12px;
+    padding: 8px;
+    border-radius: 6px;
+    margin-top: 5px;
+    font-size: 13px;
 }
 
 /* Зарегистрированные сотрудники */
@@ -348,6 +419,7 @@ body {
     display: flex;
     gap: 10px;
     margin-bottom: 15px;
+    width: 100%;
 }
 
 .add-employee-form input {
@@ -355,7 +427,7 @@ body {
     background-color: #333;
     border: 1px solid #555;
     color: #fff;
-    padding: 8px;
+    padding: 10px;
     border-radius: 6px;
 }
 
@@ -363,7 +435,7 @@ body {
     background-color: #4d4949;
     border: none;
     color: #fff;
-    padding: 8px 15px;
+    padding: 10px 15px;
     cursor: pointer;
     border-radius: 6px;
 }
@@ -371,13 +443,14 @@ body {
 .employees-list {
     border-top: 1px solid #333;
     padding-top: 10px;
+    width: 100%;
 }
 
 .employee-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px;
+    padding: 10px;
     border-bottom: 1px solid #333;
 }
 
@@ -385,7 +458,7 @@ body {
     background-color: #ff4444;
     border: none;
     color: white;
-    padding: 3px 8px;
+    padding: 5px 10px;
     cursor: pointer;
     border-radius: 3px;
 }
@@ -400,9 +473,10 @@ body {
 /* Панель фильтров */
 #filters-panel {
     margin-bottom: 15px;
-    padding: 10px;
+    padding: 15px;
     background-color: #252525;
     border-radius: 18px;
+    width: 100%;
 }
 
 .checkbox-container {
@@ -438,10 +512,11 @@ body {
 /* Цветовой пикер */
 .color-picker {
     border: 1px solid #333;
-    padding: 10px;
+    padding: 15px;
     margin: 10px 0;
     background-color: #2a2a2a;
     border-radius: 12px;
+    width: 100%;
 }
 
 .color-preview {
@@ -454,6 +529,7 @@ body {
     align-items: center;
     margin: 8px 0;
     gap: 10px;
+    width: 100%;
 }
 
 .slider-container span:first-child {
@@ -506,13 +582,14 @@ body {
     padding: 15px;
     background-color: #252525;
     border-radius: 18px;
+    width: 100%;
 }
 
 .nav-btn {
     background-color: #4d4949;
     border: none;
     color: #fff;
-    padding: 8px 12px;
+    padding: 8px;
     cursor: pointer;
     font-size: 16px;
     border-radius: 50%;
@@ -553,17 +630,21 @@ body {
     border-radius: 18px;
     overflow: hidden;
     padding: 15px;
+    width: 100%;
 }
 
 .calendar-grid {
     display: grid;
     gap: 1px;
     background-color: #333;
+    width: 100%;
+    overflow-x: auto;
 }
 
 /* Недельный вид */
 .week-view-grid {
     grid-template-columns: 120px repeat(7, 1fr);
+    min-width: 800px;
 }
 
 .week-header, .week-day {
@@ -571,6 +652,7 @@ body {
     text-align: center;
     background-color: #252525;
     font-family: 'Gilroy', Arial, sans-serif;
+    min-width: 40px;
 }
 
 .employee-header {
@@ -585,6 +667,7 @@ body {
     display: flex;
     align-items: center;
     font-family: 'Gilroy', Arial, sans-serif;
+    min-width: 120px;
 }
 
 .week-time-cell.my-employee {
@@ -596,6 +679,7 @@ body {
 /* Месячный вид */
 #month-view .calendar-grid {
     grid-template-columns: repeat(7, 1fr);
+    min-width: 300px;
 }
 
 .month-header {
@@ -666,7 +750,8 @@ body {
 .shift-card {
     background-color: #252525;
     border-radius: 18px;
-    width: 335px;
+    width: 100%;
+    max-width: 335px;
     height: 335px;
     position: relative;
     overflow: hidden;
@@ -933,27 +1018,25 @@ body {
     font-family: 'Montserrat', Arial, sans-serif;
 }
 
-/* Нижнее меню */
+/* НОВОЕ НИЖНЕЕ МЕНЮ из Figma */
 #bottom-navigation {
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
     background-color: #242424;
-    border-top: 1px solid #333;
+    border: 1px solid #333;
     display: flex;
     padding: 8px 0;
     z-index: 1000;
-    border-radius: 28px 28px 0 0;
-    margin: 0 10px;
-    width: calc(100% - 20px);
-    max-width: 375px;
-    left: 50%;
-    transform: translateX(-50%);
+    border-radius: 28px;
+    width: 254px;
+    height: 70px;
+    justify-content: space-around;
+    align-items: center;
 }
 
 .nav-item {
-    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -962,6 +1045,8 @@ body {
     cursor: pointer;
     transition: all 0.3s ease;
     opacity: 0.6;
+    flex: 1;
+    height: 100%;
 }
 
 .nav-item.active {
@@ -977,9 +1062,19 @@ body {
 }
 
 .nav-icon {
-    font-size: 20px;
+    width: 25px;
+    height: 25px;
     margin-bottom: 4px;
     transition: transform 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-icon svg {
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
 }
 
 .nav-label {
@@ -987,6 +1082,24 @@ body {
     color: #888;
     transition: color 0.3s ease;
     font-family: 'Montserrat', Arial, sans-serif;
+}
+
+/* Стили для иконок навигации */
+.nav-icon.tasks-icon {
+    /* Иконка задач */
+    background: #fff;
+    border-radius: 2px;
+}
+
+.nav-icon.schedule-icon {
+    /* Иконка графика - SVG лого */
+    background: transparent;
+}
+
+.nav-icon.profile-icon {
+    /* Иконка профиля */
+    background: #fff;
+    border-radius: 2px;
 }
 
 /* Адаптация для маленьких экранов */
@@ -1014,6 +1127,7 @@ body {
     justify-content: space-around;
     margin-bottom: 10px;
     padding: 0 10px;
+    width: 100%;
 }
 
 .week-day-header {
@@ -1024,111 +1138,14 @@ body {
     width: 40px;
 }
 
-/* Стили для админ-панели */
-.control-section {
-    margin-bottom: 15px;
-    padding: 10px;
-    background-color: #2a2a2a;
-    border-radius: 8px;
-}
-
-.control-section h5 {
-    margin: 0 0 8px 0;
-    color: #fff;
-    font-size: 14px;
-    font-family: 'Montserrat', Arial, sans-serif;
-}
-
-.current-position {
-    margin: 8px 0;
-    padding: 5px;
-    background-color: #333;
-    border-radius: 4px;
-    font-size: 13px;
-}
-
-.current-position strong {
-    color: #4CAF50;
-}
-
-.position-select {
+/* Контейнер для текущей смены */
+.current-shift-container {
     width: 100%;
-    background-color: #333;
-    border: 1px solid #555;
-    color: #fff;
-    padding: 8px;
-    border-radius: 6px;
-    font-size: 14px;
+    margin-bottom: 20px;
 }
 
-.position-select:focus {
-    outline: none;
-    border-color: #007acc;
-}
-
-.user-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    min-width: 280px;
-}
-
-.name-input-group {
-    display: flex;
-    gap: 5px;
-}
-
-.employee-select {
-    flex: 1;
-    background-color: #333;
-    border: 1px solid #555;
-    color: #fff;
-    padding: 8px;
-    border-radius: 6px;
-    min-width: 150px;
-}
-
-.link-btn {
-    background-color: #4d4949;
-    border: none;
-    color: #fff;
-    padding: 8px 12px;
-    cursor: pointer;
-    font-size: 12px;
-    white-space: nowrap;
-    border-radius: 6px;
-}
-
-.link-btn:hover {
-    background-color: #5a5656;
-}
-
-.user-item {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    padding: 15px;
-    border-bottom: 1px solid #333;
-    gap: 20px;
-    background-color: #2a2a2a;
-    border-radius: 8px;
-    margin-bottom: 10px;
-}
-
-.user-info {
-    flex: 1;
-}
-
-.user-info strong {
-    display: block;
-    margin-bottom: 8px;
-    font-size: 16px;
-    font-family: 'Montserrat', Arial, sans-serif;
-    color: #fff;
-}
-
-.user-info div {
-    margin-bottom: 5px;
-    color: #ccc;
-    font-size: 13px;
+/* Стили для отображения имени в графике */
+.employee-display-name {
+    font-weight: bold;
+    color: #4CAF50;
 }
