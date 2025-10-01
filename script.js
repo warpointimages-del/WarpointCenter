@@ -4,7 +4,7 @@ class ScheduleApp {
     constructor() {
         this.tg = window.Telegram.WebApp;
         this.currentDate = new Date();
-        this.isMonthView = false;
+        this.isMonthView = true; // По умолчанию показываем месяц
         this.scheduleData = {};
         this.user = null;
         this.filterSettings = { showOnlyMine: false };
@@ -93,18 +93,25 @@ class ScheduleApp {
         });
     }
 
-    // === ОБНОВЛЕННЫЙ РЕНДЕРИНГ СМЕН ===
+    // === ОБНОВЛЕННЫЙ РЕНДЕРИНГ СТРАНИЦ ===
 
     renderCurrentPage() {
         if (this.currentPage === 'schedule') {
             this.renderSchedulePage();
         } else if (this.currentPage === 'profile') {
             this.renderProfilePage();
+        } else if (this.currentPage === 'tasks') {
+            this.renderTasksPage();
         }
     }
 
     renderSchedulePage() {
-        this.render();
+        this.renderMonthCalendar();
+        this.renderShiftCards();
+    }
+
+    renderTasksPage() {
+        // Страница задач остается без изменений
     }
 
     renderProfilePage() {
@@ -206,16 +213,58 @@ class ScheduleApp {
         }
     }
 
-    render() {
-        this.updateNavigation();
+    // === НОВЫЙ МЕТОД РЕНДЕРИНГА КАЛЕНДАРЯ ===
+
+    renderMonthCalendar() {
+        const calendarContainer = document.getElementById('month-calendar');
+        if (!calendarContainer) return;
         
-        const employeesToShow = this.getFilteredEmployees();
+        const firstDay = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1);
+        const lastDay = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth() + 1, 0);
+        const today = new Date();
         
-        if (this.isMonthView) {
-            this.renderMonthView(employeesToShow);
-        } else {
-            this.renderWeekView(employeesToShow);
+        let html = '';
+        
+        // Пустые ячейки для первого дня недели
+        const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+        for (let i = 0; i < startDay; i++) {
+            html += `<div class="month-day"></div>`;
         }
+        
+        // Дни месяца
+        for (let day = 1; day <= lastDay.getDate(); day++) {
+            const isToday = today.getDate() === day && 
+                           today.getMonth() === this.currentDate.getMonth() && 
+                           today.getFullYear() === this.currentDate.getFullYear();
+            
+            const hasShift = this.hasShiftForDay(day);
+            const dayClass = `month-day ${isToday ? 'today' : ''} ${hasShift ? 'has-shift' : ''}`;
+            
+            html += `<div class="${dayClass}">${day}</div>`;
+        }
+        
+        calendarContainer.innerHTML = html;
+        
+        // Обновляем навигацию
+        this.updateNavigation();
+    }
+
+    hasShiftForDay(day) {
+        const monthSheet = this.getCurrentMonthSheetName();
+        const dataSource = this.scheduleData;
+        
+        for (const employee of Object.keys(dataSource)) {
+            const shifts = dataSource[employee] || [];
+            const dayShifts = shifts.filter(shift => 
+                shift.date === day && shift.month === monthSheet
+            );
+            
+            if (dayShifts.length > 0 && this.userAttachments.includes(employee)) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     updateNavigation() {
@@ -241,89 +290,14 @@ class ScheduleApp {
         }
     }
 
-    renderWeekView(employeesToShow) {
-        const weekView = document.getElementById('week-view');
-        const monthView = document.getElementById('month-view');
-        
-        weekView.classList.remove('hidden');
-        monthView.classList.add('hidden');
-        
-        const weekStart = new Date(this.currentDate);
-        weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
-        
-        let html = '<div class="calendar-grid week-view-grid">';
-        
-        // Заголовки дней
-        html += '<div class="week-header employee-header"></div>';
-        for (let i = 0; i < 7; i++) {
-            const day = new Date(weekStart);
-            day.setDate(day.getDate() + i);
-            const monthName = this.getMonthName(day.getMonth());
-            html += `<div class="week-header">${this.getDayName(day)}<br>${day.getDate()} ${monthName}</div>`;
-        }
-        
-        // Сначала отображаем "моих" сотрудников
-        const myEmployees = employeesToShow.filter(employee => 
-            this.userAttachments.includes(employee)
-        );
-        
-        myEmployees.forEach(employee => {
-            html += `<div class="week-time-cell my-employee">${employee}</div>`;
-            
-            for (let i = 0; i < 7; i++) {
-                const day = new Date(weekStart);
-                day.setDate(day.getDate() + i);
-                const dayNumber = day.getDate();
-                const dayMonth = this.getMonthSheetNameForDate(day);
-                
-                html += `<div class="week-day">`;
-                
-                const shifts = this.getShiftsForDay(employee, dayNumber, dayMonth);
-                shifts.forEach(shift => {
-                    const color = this.getEmployeeColor(employee);
-                    html += this.renderShift(shift, color, true);
-                });
-                
-                html += `</div>`;
-            }
-        });
-        
-        // Затем отображаем "остальных" сотрудников
-        const otherEmployees = employeesToShow.filter(employee => 
-            !this.userAttachments.includes(employee)
-        );
-        
-        otherEmployees.forEach(employee => {
-            html += `<div class="week-time-cell">${employee}</div>`;
-            
-            for (let i = 0; i < 7; i++) {
-                const day = new Date(weekStart);
-                day.setDate(day.getDate() + i);
-                const dayNumber = day.getDate();
-                const dayMonth = this.getMonthSheetNameForDate(day);
-                
-                html += `<div class="week-day">`;
-                
-                const shifts = this.getShiftsForDay(employee, dayNumber, dayMonth);
-                shifts.forEach(shift => {
-                    const color = this.getEmployeeColor(employee);
-                    html += this.renderShift(shift, color, false);
-                });
-                
-                html += `</div>`;
-            }
-        });
-        
-        html += '</div>';
-        weekView.innerHTML = html;
-        
-        // Добавляем карточки смен для текущего дня
-        this.renderShiftCards();
-    }
+    // === КАРТОЧКИ СМЕН ===
 
     renderShiftCards() {
         const today = new Date();
         const todayKey = this.formatDateKey(today);
+        const container = document.getElementById('shift-cards-container');
+        
+        if (!container) return;
         
         // Находим смены на сегодня
         const todayShifts = [];
@@ -344,7 +318,6 @@ class ScheduleApp {
         });
         
         // Рендерим карточки смен
-        const calendarContainer = document.getElementById('calendar-container');
         let cardsHtml = '';
         
         todayShifts.forEach(({ employee, shift, isMyShift }) => {
@@ -353,12 +326,13 @@ class ScheduleApp {
             }
         });
         
-        // Если есть карточки, добавляем их после календаря
         if (cardsHtml) {
-            calendarContainer.innerHTML += `<div class="shift-cards-container">${cardsHtml}</div>`;
+            container.innerHTML = cardsHtml;
             
             // Добавляем обработчики для кнопок чеков
             this.attachReceiptButtonHandlers();
+        } else {
+            container.innerHTML = '<div class="no-data-message">На сегодня смен нет</div>';
         }
     }
 
@@ -750,10 +724,7 @@ class ScheduleApp {
     }
 
     showNoDataMessage() {
-        const container = this.isMonthView ? 
-            document.getElementById('month-view') : 
-            document.getElementById('week-view');
-        
+        const container = document.getElementById('shift-cards-container');
         if (container) {
             container.innerHTML = '<div class="no-data-message">Нет данных для отображения</div>';
         }
@@ -1152,91 +1123,6 @@ class ScheduleApp {
         return this.getMonthSheetNameForDate(this.currentDate);
     }
 
-    getShiftsForDay(employee, dayNumber, monthSheet) {
-        const employeeShifts = this.weekData[employee];
-        if (!employeeShifts) return [];
-        
-        return employeeShifts.filter(shift => 
-            shift.date === dayNumber && shift.month === monthSheet
-        );
-    }
-
-    getMonthName(monthIndex) {
-        const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
-        return months[monthIndex];
-    }
-
-    renderMonthView(employeesToShow) {
-        const weekView = document.getElementById('week-view');
-        const monthView = document.getElementById('month-view');
-        
-        weekView.classList.add('hidden');
-        monthView.classList.remove('hidden');
-        
-        const firstDay = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1);
-        const lastDay = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth() + 1, 0);
-        
-        let html = '<div class="calendar-grid">';
-        
-        const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-        dayNames.forEach(day => {
-            html += `<div class="month-header">${day}</div>`;
-        });
-        
-        const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
-        for (let i = 0; i < startDay; i++) {
-            html += `<div class="month-day other-month"></div>`;
-        }
-        
-        const today = new Date();
-        for (let day = 1; day <= lastDay.getDate(); day++) {
-            const isToday = today.getDate() === day && 
-                           today.getMonth() === this.currentDate.getMonth() && 
-                           today.getFullYear() === this.currentDate.getFullYear();
-            
-            html += `<div class="month-day ${isToday ? 'today' : ''}">`;
-            html += `<div class="day-number">${day}</div>`;
-            
-            const myShifts = [];
-            const otherShifts = [];
-            
-            employeesToShow.forEach(employee => {
-                const shifts = this.scheduleData[employee] || [];
-                const dayShifts = shifts.filter(shift => shift.date === day);
-                
-                dayShifts.forEach(shift => {
-                    const color = this.getEmployeeColor(employee);
-                    const shiftHtml = this.renderShift(shift, color, this.userAttachments.includes(employee));
-                    if (this.userAttachments.includes(employee)) {
-                        myShifts.push(shiftHtml);
-                    } else {
-                        otherShifts.push(shiftHtml);
-                    }
-                });
-            });
-            
-            html += myShifts.join('');
-            html += otherShifts.join('');
-            
-            html += `</div>`;
-        }
-        
-        html += '</div>';
-        monthView.innerHTML = html;
-    }
-
-    renderShift(shift, color, isMyShift = false) {
-        const shiftClass = isMyShift ? 'shift-parallelogram my-shift' : 'shift-parallelogram other-shift';
-        const hsl = `hsl(${color.h}, ${color.s}%, ${color.l}%)`;
-        return `
-            <div class="${shiftClass}" style="background-color: ${hsl}">
-                <div class="shift-content">
-                    ${shift.hours > 1 ? shift.hours + 'ч' : ''}
-                </div>
-            </div>
-        `;
-    }
-
     getFilteredEmployees() {
         const dataSource = this.isMonthView ? this.scheduleData : this.weekData;
         const allEmployees = Object.keys(dataSource);
@@ -1308,8 +1194,6 @@ class ScheduleApp {
     initializeEventListeners() {
         document.getElementById('prev-week').addEventListener('click', () => this.changeWeek(-1));
         document.getElementById('next-week').addEventListener('click', () => this.changeWeek(1));
-        document.getElementById('toggle-view').addEventListener('click', () => this.toggleView());
-        document.getElementById('show-only-mine').addEventListener('change', (e) => this.toggleFilter(e.target.checked));
         document.getElementById('global-show-only-registered').addEventListener('change', (e) => this.toggleGlobalFilter(e.target.checked));
     }
 
@@ -1317,7 +1201,7 @@ class ScheduleApp {
         this.globalFilterSettings.showOnlyRegistered = showOnlyRegistered;
         await firebaseService.saveGlobalFilterSettings(this.globalFilterSettings);
         if (this.currentPage === 'schedule') {
-            this.render();
+            this.renderSchedulePage();
         }
     }
 
@@ -1329,39 +1213,14 @@ class ScheduleApp {
         }
         this.loadScheduleData().then(() => {
             if (this.currentPage === 'schedule') {
-                this.render();
+                this.renderSchedulePage();
             }
         });
-    }
-
-    toggleView() {
-        this.isMonthView = !this.isMonthView;
-        const toggleBtn = document.getElementById('toggle-view');
-        toggleBtn.textContent = this.isMonthView ? '▲' : '▼';
-        this.loadScheduleData().then(() => {
-            if (this.currentPage === 'schedule') {
-                this.render();
-            }
-        });
-    }
-
-    async toggleFilter(showOnlyMine) {
-        this.filterSettings.showOnlyMine = showOnlyMine;
-        if (this.user) {
-            await firebaseService.saveFilterSettings(this.user.id, this.filterSettings);
-        }
-        if (this.currentPage === 'schedule') {
-            this.render();
-        }
     }
 
     async loadFilterSettings() {
         if (this.user) {
             this.filterSettings = await firebaseService.getFilterSettings(this.user.id);
-            const checkbox = document.getElementById('show-only-mine');
-            if (checkbox) {
-                checkbox.checked = this.filterSettings.showOnlyMine;
-            }
         }
     }
 
@@ -1378,9 +1237,6 @@ class ScheduleApp {
             await firebaseService.updateUserColor(this.user.id, color);
             this.user.color = color;
             await this.loadAllUsers();
-            if (this.currentPage === 'schedule') {
-                this.render();
-            }
         }
     }
 
@@ -1407,12 +1263,7 @@ class ScheduleApp {
         document.querySelector(`.nav-item[data-page="${pageName}"]`).classList.add('active');
         
         this.currentPage = pageName;
-        
-        if (pageName === 'schedule') {
-            this.renderSchedulePage();
-        } else if (pageName === 'profile') {
-            this.renderProfilePage();
-        }
+        this.renderCurrentPage();
     }
 }
 
