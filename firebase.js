@@ -120,7 +120,7 @@ class FirebaseService {
 
     async updateUserPosition(userId, position) {
         try {
-            await update(ref(this.db, `users/${userId}/position`), { position });
+            await update(ref(this.db, `users/${userId}`), { position });
             return true;
         } catch (error) {
             console.error('Ошибка обновления должности пользователя:', error);
@@ -130,7 +130,7 @@ class FirebaseService {
 
     async updateUserDisplayName(userId, displayName) {
         try {
-            await update(ref(this.db, `users/${userId}/displayName`), { displayName });
+            await update(ref(this.db, `users/${userId}`), { displayName });
             return true;
         } catch (error) {
             console.error('Ошибка обновления отображаемого имени:', error);
