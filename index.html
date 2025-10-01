@@ -50,6 +50,9 @@
                     <h1>График работы</h1>
                 </div>
                 <div class="page-content">
+                    <!-- Контейнер для текущей смены -->
+                    <div id="current-shift-container" class="current-shift-container"></div>
+
                     <!-- Фильтры -->
                     <div id="filters-panel">
                         <label class="checkbox-container">
@@ -73,7 +76,6 @@
                     <div id="calendar-container">
                         <div id="week-view"></div>
                         <div id="month-view" class="hidden"></div>
-                        <!-- Контейнер для карточек смен будет добавляться динамически -->
                     </div>
                 </div>
             </div>
@@ -129,18 +131,36 @@
             </div>
         </div>
 
-        <!-- Нижнее меню -->
+        <!-- Новое нижнее меню из Figma -->
         <div id="bottom-navigation" class="hidden">
             <div class="nav-item" data-page="tasks">
-                <div class="nav-icon">📋</div>
+                <div class="nav-icon tasks-icon">
+                    <svg viewBox="0 0 24 24">
+                        <rect x="3" y="4" width="18" height="2" rx="1"></rect>
+                        <rect x="3" y="9" width="18" height="2" rx="1"></rect>
+                        <rect x="3" y="14" width="18" height="2" rx="1"></rect>
+                        <rect x="3" y="19" width="18" height="2" rx="1"></rect>
+                    </svg>
+                </div>
                 <div class="nav-label">Задачи</div>
             </div>
             <div class="nav-item active" data-page="schedule">
-                <div class="nav-icon">📅</div>
+                <div class="nav-icon schedule-icon">
+                    <svg viewBox="0 0 310 310" fill="white">
+                        <path d="M155,0C69.5,0,0,69.5,0,155s69.5,155,155,155s155-69.5,155-155S240.5,0,155,0z M155,285
+                            C81.3,285,25,228.7,25,155S81.3,25,155,25s130,56.3,130,130S228.7,285,155,285z"/>
+                        <polygon points="155,75 175,75 175,155 235,155 235,175 155,175"/>
+                    </svg>
+                </div>
                 <div class="nav-label">График</div>
             </div>
             <div class="nav-item" data-page="profile">
-                <div class="nav-icon">👤</div>
+                <div class="nav-icon profile-icon">
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="12" cy="7" r="5"></circle>
+                        <path d="M3,22v-2c0-3.3,2.7-6,6-6h6c3.3,0,6,2.7,6,6v2"></path>
+                    </svg>
+                </div>
                 <div class="nav-label">Профиль</div>
             </div>
         </div>
