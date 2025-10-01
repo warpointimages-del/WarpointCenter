@@ -11,7 +11,6 @@ body {
     font-size: 14px;
     line-height: 1.4;
     overflow-x: hidden;
-    max-width: 100vw;
 }
 
 .hidden {
@@ -23,10 +22,8 @@ body {
     min-height: 100vh;
     background-color: #1b1b1b;
     padding: 10px;
-    max-width: 375px;
-    margin: 0 auto;
     width: 100%;
-    overflow-x: hidden;
+    max-width: 100%;
 }
 
 /* Декоративные элементы из Figma */
@@ -34,7 +31,7 @@ body {
     background-color: rgba(226, 50, 57, 0.58);
     height: 180px;
     width: 177px;
-    position: absolute;
+    position: fixed;
     border-radius: 50%;
     bottom: -90px;
     left: -44px;
@@ -46,7 +43,7 @@ body {
     height: 166px;
     width: 163px;
     border-radius: 50%;
-    position: absolute;
+    position: fixed;
     top: -103px;
     left: -35px;
     z-index: 0;
@@ -58,7 +55,7 @@ body {
     width: 163px;
     top: -57px;
     right: -35px;
-    position: absolute;
+    position: fixed;
     border-radius: 50%;
     z-index: 0;
 }
@@ -69,7 +66,7 @@ body {
     width: 148px;
     bottom: -75px;
     right: -35px;
-    position: absolute;
+    position: fixed;
     border-radius: 50%;
     z-index: 0;
 }
@@ -123,7 +120,6 @@ body {
     flex-direction: column;
     overflow: hidden;
     width: 100%;
-    max-width: 100%;
 }
 
 .page-header {
@@ -144,9 +140,9 @@ body {
 .page-content {
     flex: 1;
     overflow-y: auto;
-    padding: 0 5px 70px 5px;
+    padding: 0 0 80px 0;
     width: 100%;
-    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Состояние пустой страницы */
@@ -638,13 +634,11 @@ body {
     gap: 1px;
     background-color: #333;
     width: 100%;
-    overflow-x: auto;
 }
 
 /* Недельный вид */
 .week-view-grid {
     grid-template-columns: 120px repeat(7, 1fr);
-    min-width: 800px;
 }
 
 .week-header, .week-day {
@@ -679,7 +673,6 @@ body {
 /* Месячный вид */
 #month-view .calendar-grid {
     grid-template-columns: repeat(7, 1fr);
-    min-width: 300px;
 }
 
 .month-header {
@@ -746,17 +739,16 @@ body {
     width: 100%;
 }
 
-/* НОВЫЙ ДИЗАЙН КАРТОЧКИ СМЕНЫ */
+/* Карточка смены */
 .shift-card {
     background-color: #252525;
     border-radius: 18px;
     width: 100%;
-    max-width: 335px;
     height: 335px;
     position: relative;
     overflow: hidden;
     padding: 25px 20px;
-    margin: 10px auto;
+    margin: 10px 0;
     border: 1px solid #333;
 }
 
@@ -1092,7 +1084,7 @@ body {
 }
 
 .nav-icon.schedule-icon {
-    /* Иконка графика - SVG лого */
+    /* Логотип W из GitHub */
     background: transparent;
 }
 
@@ -1121,23 +1113,6 @@ body {
     }
 }
 
-/* Дни недели заголовки */
-.week-days-header {
-    display: flex;
-    justify-content: space-around;
-    margin-bottom: 10px;
-    padding: 0 10px;
-    width: 100%;
-}
-
-.week-day-header {
-    color: #ffffff;
-    font-size: 16px;
-    font-family: 'Gilroy', Arial, sans-serif;
-    text-align: center;
-    width: 40px;
-}
-
 /* Контейнер для текущей смены */
 .current-shift-container {
     width: 100%;
@@ -1148,4 +1123,13 @@ body {
 .employee-display-name {
     font-weight: bold;
     color: #4CAF50;
+}
+
+/* Фикс для горизонтального скролла в календаре */
+.calendar-grid {
+    overflow-x: auto;
+}
+
+.week-view-grid {
+    min-width: min-content;
 }
