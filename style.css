@@ -1133,3 +1133,36 @@ body {
 .week-view-grid {
     min-width: min-content;
 }
+/* Цвета для должностей */
+.employee-display-name.position-стажёр {
+    color: #888888 !important;
+}
+
+.employee-display-name.position-оператор {
+    color: #007acc !important;
+}
+
+.employee-display-name.position-старший-оператор {
+    color: #00bcd4 !important;
+}
+
+.employee-display-name.position-заместитель-управляющего {
+    color: #9c27b0 !important;
+}
+
+.employee-display-name.position-администратор {
+    color: #f44336 !important;
+}
+
+/* Иконки навигации из Figma */
+.nav-icon.tasks-icon svg {
+    fill: currentColor;
+}
+
+.nav-icon.schedule-icon svg {
+    fill: currentColor;
+}
+
+.nav-icon.profile-icon svg {
+    fill: currentColor;
+}
