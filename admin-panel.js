@@ -54,7 +54,7 @@ class AdminPanel {
                     <strong>${user.firstName || ''} ${user.lastName || ''}</strong>
                     <div>@${user.username || 'нет username'}</div>
                     <div>ID: ${user.id}</div>
-                    <div>Должность: ${user.position || 'Стажёр'}</div>
+                    <div class="current-position">Текущая должность: <strong>${user.position || 'Стажёр'}</strong></div>
                     <div class="attached-names">
                         <strong>Привязанные сотрудники:</strong>
                         ${userAttachments.length > 0 
@@ -68,32 +68,44 @@ class AdminPanel {
                     </div>
                 </div>
                 <div class="user-controls">
-                    <div class="name-input-group">
-                        <select class="employee-select" id="employee-select-${user.id}">
-                            <option value="">Выберите сотрудника</option>
-                            ${this.registeredEmployees.map(emp => 
-                                `<option value="${emp.replace(/'/g, "\\'").replace(/"/g, '\\"')}">${emp}</option>`
-                            ).join('')}
-                        </select>
-                        <button class="link-btn" onclick="adminPanel.attachEmployee('${user.id}')">Привязать</button>
+                    <div class="control-section">
+                        <h5>Привязка сотрудника</h5>
+                        <div class="name-input-group">
+                            <select class="employee-select" id="employee-select-${user.id}">
+                                <option value="">Выберите сотрудника</option>
+                                ${this.registeredEmployees.map(emp => 
+                                    `<option value="${emp.replace(/'/g, "\\'").replace(/"/g, '\\"')}">${emp}</option>`
+                                ).join('')}
+                            </select>
+                            <button class="link-btn" onclick="adminPanel.attachEmployee('${user.id}')">Привязать</button>
+                        </div>
                     </div>
-                    <div class="position-control">
-                        <select class="position-select" onchange="adminPanel.updatePosition('${user.id}', this.value)">
-                            <option value="Стажёр" ${user.position === 'Стажёр' ? 'selected' : ''}>Стажёр</option>
-                            <option value="Оператор" ${user.position === 'Оператор' ? 'selected' : ''}>Оператор</option>
-                            <option value="Старший оператор" ${user.position === 'Старший оператор' ? 'selected' : ''}>Старший оператор</option>
-                            <option value="Заместитель управляющего" ${user.position === 'Заместитель управляющего' ? 'selected' : ''}>Заместитель управляющего</option>
-                            <option value="Администратор" ${user.position === 'Администратор' ? 'selected' : ''}>Администратор</option>
-                        </select>
+                    
+                    <div class="control-section">
+                        <h5>Настройка должности</h5>
+                        <div class="position-control">
+                            <select class="position-select" onchange="adminPanel.updatePosition('${user.id}', this.value)">
+                                <option value="Стажёр" ${(user.position || 'Стажёр') === 'Стажёр' ? 'selected' : ''}>Стажёр</option>
+                                <option value="Оператор" ${(user.position || 'Стажёр') === 'Оператор' ? 'selected' : ''}>Оператор</option>
+                                <option value="Старший оператор" ${(user.position || 'Стажёр') === 'Старший оператор' ? 'selected' : ''}>Старший оператор</option>
+                                <option value="Заместитель управляющего" ${(user.position || 'Стажёр') === 'Заместитель управляющего' ? 'selected' : ''}>Заместитель управляющего</option>
+                                <option value="Администратор" ${(user.position || 'Стажёр') === 'Администратор' ? 'selected' : ''}>Администратор</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="admin-control">
-                        <label>
-                            <input type="checkbox" 
-                                   class="admin-checkbox"
-                                   ${user.isAdmin ? 'checked' : ''}
-                                   onchange="adminPanel.toggleAdmin('${user.id}', this.checked)">
-                            Админ
-                        </label>
+                    
+                    <div class="control-section">
+                        <h5>Права доступа</h5>
+                        <div class="admin-control">
+                            <label class="checkbox-container">
+                                <input type="checkbox" 
+                                       class="admin-checkbox"
+                                       ${user.isAdmin ? 'checked' : ''}
+                                       onchange="adminPanel.toggleAdmin('${user.id}', this.checked)">
+                                <span class="checkmark"></span>
+                                Администратор
+                            </label>
+                        </div>
                     </div>
                 </div>
             `;
@@ -216,11 +228,13 @@ class AdminPanel {
     async toggleAdmin(userId, isAdmin) {
         await firebaseService.updateUser(userId, { isAdmin });
         this.users[userId].isAdmin = isAdmin;
+        this.renderUsersList();
     }
 
     async updatePosition(userId, position) {
         await firebaseService.updateUserPosition(userId, position);
         this.users[userId].position = position;
+        this.renderUsersList();
         this.updateScheduleApp();
     }
 
