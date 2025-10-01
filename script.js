@@ -15,7 +15,8 @@ class ScheduleApp {
         this.allUsers = {};
         this.allAttachments = {};
         this.showColorPicker = false;
-        this.weekData = {}; // Отдельное хранилище для недельных данных
+        this.weekData = {};
+        this.currentPage = 'schedule'; // Текущая страница по умолчанию
         
         this.init();
     }
@@ -36,20 +37,168 @@ class ScheduleApp {
             await this.loadAvailableMonths();
             await this.loadScheduleData();
             this.initializeEventListeners();
-            this.render();
-            
-            if (this.user && this.user.isAdmin) {
-                this.initializeAdminControls();
-            }
+            this.initializeNavigation();
+            this.renderCurrentPage();
             
             document.getElementById('loading').classList.add('hidden');
             document.getElementById('main-content').classList.remove('hidden');
+            document.getElementById('bottom-navigation').classList.remove('hidden');
         } catch (error) {
             console.error('Ошибка инициализации:', error);
             document.getElementById('loading').textContent = 'Ошибка загрузки: ' + error.message;
         }
     }
 
+    // НАВИГАЦИЯ МЕЖДУ СТРАНИЦАМИ
+    initializeNavigation() {
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const page = item.getAttribute('data-page');
+                this.switchPage(page);
+            });
+        });
+    }
+
+    switchPage(pageName) {
+        // Скрываем все страницы
+        document.querySelectorAll('.page').forEach(page => {
+            page.classList.add('hidden');
+        });
+        
+        // Убираем активный класс у всех кнопок
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        // Показываем выбранную страницу
+        document.getElementById(`${pageName}-page`).classList.remove('hidden');
+        
+        // Активируем соответствующую кнопку
+        document.querySelector(`.nav-item[data-page="${pageName}"]`).classList.add('active');
+        
+        this.currentPage = pageName;
+        
+        // Если переключились на страницу графика - перерисовываем
+        if (pageName === 'schedule') {
+            this.renderSchedulePage();
+        } else if (pageName === 'profile') {
+            this.renderProfilePage();
+        }
+    }
+
+    renderCurrentPage() {
+        if (this.currentPage === 'schedule') {
+            this.renderSchedulePage();
+        } else if (this.currentPage === 'profile') {
+            this.renderProfilePage();
+        }
+    }
+
+    renderSchedulePage() {
+        this.render();
+    }
+
+    renderProfilePage() {
+        this.renderUserInfo();
+        this.renderColorPickerInProfile();
+        this.renderAdminSettings();
+    }
+
+    renderUserInfo() {
+        if (this.user) {
+            const avatar = document.querySelector('.avatar-placeholder');
+            const fullName = document.getElementById('user-fullname');
+            const username = document.getElementById('user-username');
+            const status = document.getElementById('user-status');
+            
+            if (avatar) {
+                avatar.textContent = this.user.firstName ? this.user.firstName.charAt(0).toUpperCase() : 'U';
+            }
+            if (fullName) {
+                fullName.textContent = `${this.user.firstName || ''} ${this.user.lastName || ''}`.trim() || 'Пользователь';
+            }
+            if (username) {
+                username.textContent = this.user.username ? `@${this.user.username}` : 'нет username';
+            }
+            if (status) {
+                status.textContent = this.user.isAdmin ? 'Администратор' : 'Сотрудник';
+            }
+        }
+    }
+
+    renderColorPickerInProfile() {
+        const container = document.getElementById('color-picker-container');
+        if (!container || !this.user) return;
+        
+        const userColor = this.user.color || { h: 200, s: 80, l: 60 };
+        const hslColor = `hsl(${userColor.h}, ${userColor.s}%, ${userColor.l}%)`;
+        
+        container.innerHTML = `
+            <div class="color-picker">
+                <div class="color-preview" style="background-color: ${hslColor}; margin: 10px 0; height: 40px; border: 1px solid #555; border-radius: 8px;"></div>
+                <div class="color-controls">
+                    <div class="slider-container">
+                        <span>Оттенок</span>
+                        <input type="range" min="0" max="360" value="${userColor.h}" class="hue-slider">
+                        <span>${userColor.h}</span>
+                    </div>
+                    <div class="slider-container">
+                        <span>Насыщенность</span>
+                        <input type="range" min="0" max="100" value="${userColor.s}" class="saturation-slider">
+                        <span>${userColor.s}%</span>
+                    </div>
+                    <div class="slider-container">
+                        <span>Яркость</span>
+                        <input type="range" min="0" max="100" value="${userColor.l}" class="lightness-slider">
+                        <span>${userColor.l}%</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const hueSlider = container.querySelector('.hue-slider');
+        const saturationSlider = container.querySelector('.saturation-slider');
+        const lightnessSlider = container.querySelector('.lightness-slider');
+        
+        const updateColor = () => {
+            const newColor = {
+                h: parseInt(hueSlider.value),
+                s: parseInt(saturationSlider.value),
+                l: parseInt(lightnessSlider.value)
+            };
+            
+            // Обновляем предпросмотр
+            const preview = container.querySelector('.color-preview');
+            preview.style.backgroundColor = `hsl(${newColor.h}, ${newColor.s}%, ${newColor.l}%)`;
+            
+            // Обновляем значения
+            hueSlider.nextElementSibling.textContent = newColor.h;
+            saturationSlider.nextElementSibling.textContent = newColor.s + '%';
+            lightnessSlider.nextElementSibling.textContent = newColor.l + '%';
+            
+            // Сохраняем в базу данных
+            this.saveUserColor(newColor);
+        };
+        
+        hueSlider.addEventListener('input', updateColor);
+        saturationSlider.addEventListener('input', updateColor);
+        lightnessSlider.addEventListener('input', updateColor);
+    }
+
+    renderAdminSettings() {
+        const adminSection = document.getElementById('admin-settings');
+        if (this.user && this.user.isAdmin) {
+            adminSection.classList.remove('hidden');
+            if (window.adminPanel) {
+                window.adminPanel.render();
+            }
+        } else {
+            adminSection.classList.add('hidden');
+        }
+    }
+
+    // ОСТАЛЬНЫЕ МЕТОДЫ БЕЗ ИЗМЕНЕНИЙ (initializeUser, loadAllUsers, и т.д.)
     async initializeUser() {
         const initData = this.tg.initDataUnsafe;
         const userData = {
@@ -70,39 +219,29 @@ class ScheduleApp {
             }
             
             this.user = existingUser;
-            
-            if (this.user.isAdmin) {
-                document.getElementById('admin-panel').classList.remove('hidden');
-            }
         }
     }
 
     async loadAllUsers() {
         this.allUsers = await firebaseService.getAllUsers();
-        console.log('Все пользователи:', this.allUsers);
     }
 
     async loadAllAttachments() {
         this.allAttachments = await firebaseService.getAllAttachments();
-        console.log('Все привязки:', this.allAttachments);
     }
 
     async loadRegisteredEmployees() {
         this.registeredEmployees = await firebaseService.getRegisteredEmployees();
-        console.log('Зарегистрированные сотрудники:', this.registeredEmployees);
     }
 
     async loadUserAttachments() {
         if (this.user) {
             this.userAttachments = await firebaseService.getUserAttachments(this.user.id);
-            console.log('Привязанные сотрудники:', this.userAttachments);
         }
     }
 
     async loadAvailableMonths() {
         try {
-            console.log('Загрузка списка листов через gviz...');
-            
             const response = await fetch(
                 `https://docs.google.com/spreadsheets/d/1leyP2K649JNfC8XvIV3amZPnQz18jFI95JAJoeXcXGk/gviz/tq`
             );
@@ -112,7 +251,6 @@ class ScheduleApp {
             }
             
             const text = await response.text();
-            
             const jsonStart = text.indexOf('{');
             const jsonEnd = text.lastIndexOf('}') + 1;
             
@@ -131,8 +269,6 @@ class ScheduleApp {
             } else {
                 this.availableMonths = this.generateMonthList();
             }
-            
-            console.log('Найденные листы:', this.availableMonths);
             
         } catch (error) {
             console.error('Ошибка загрузки списка месяцев:', error);
@@ -160,10 +296,8 @@ class ScheduleApp {
     async loadScheduleData() {
         try {
             if (this.isMonthView) {
-                // Для месячного вида загружаем только текущий месяц
                 await this.loadMonthData();
             } else {
-                // Для недельного вида загружаем все месяцы недели
                 await this.loadWeekData();
             }
             
@@ -175,8 +309,6 @@ class ScheduleApp {
 
     async loadMonthData() {
         const currentMonthSheet = this.getCurrentMonthSheetName();
-        console.log('Загружаем месяц:', currentMonthSheet);
-        
         this.scheduleData = {};
         const loaded = await this.loadSpecificMonthData(currentMonthSheet);
         if (!loaded) {
@@ -185,17 +317,12 @@ class ScheduleApp {
     }
 
     async loadWeekData() {
-        console.log('=== ЗАГРУЗКА ДАННЫХ ДЛЯ НЕДЕЛИ ===');
-        
         const weekStart = new Date(this.currentDate);
         weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
         
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekEnd.getDate() + 6);
         
-        console.log('Неделя с', this.formatDate(weekStart), 'по', this.formatDate(weekEnd));
-        
-        // Собираем уникальные месяцы на неделе
         const monthsInWeek = new Set();
         const currentDay = new Date(weekStart);
         
@@ -205,18 +332,13 @@ class ScheduleApp {
             currentDay.setDate(currentDay.getDate() + 1);
         }
         
-        console.log('Месяцы на неделе:', Array.from(monthsInWeek));
-        
-        // Загружаем данные для каждого месяца и объединяем их
         this.weekData = {};
         let anyDataLoaded = false;
         
         for (let monthSheet of monthsInWeek) {
-            console.log(`Загружаем данные для: ${monthSheet}`);
             const monthData = await this.loadSpecificMonthData(monthSheet, false);
             if (monthData && Object.keys(monthData).length > 0) {
                 anyDataLoaded = true;
-                // Объединяем данные месяца в общий weekData
                 for (const [employee, shifts] of Object.entries(monthData)) {
                     if (!this.weekData[employee]) {
                         this.weekData[employee] = [];
@@ -225,8 +347,6 @@ class ScheduleApp {
                 }
             }
         }
-        
-        console.log('Объединенные данные недели:', this.weekData);
         
         if (!anyDataLoaded) {
             this.showNoDataMessage();
@@ -255,24 +375,10 @@ class ScheduleApp {
         return `${month} ${year}`;
     }
 
-    parseDateFromSheetName(sheetName) {
-        const [monthName, year] = sheetName.split(' ');
-        const months = {
-            'Январь': 0, 'Февраль': 1, 'Март': 2, 'Апрель': 3, 'Май': 4, 'Июнь': 5,
-            'Июль': 6, 'Август': 7, 'Сентябрь': 8, 'Октябрь': 9, 'Ноябрь': 10, 'Декабрь': 11
-        };
-        
-        return new Date(2000 + parseInt(year), months[monthName], 15);
-    }
-
     async loadSpecificMonthData(sheetName, mergeToScheduleData = true) {
         try {
-            console.log(`=== ЗАГРУЗКА ЛИСТА: "${sheetName}" ===`);
-            
-            // Пробуем разные методы в порядке приоритета
             let data = await this.loadViaGviz(sheetName);
             if (data) {
-                console.log('Gviz данные получены');
                 const monthData = this.processGvizData(data, sheetName);
                 if (Object.keys(monthData).length > 0) {
                     if (mergeToScheduleData) {
@@ -282,10 +388,8 @@ class ScheduleApp {
                 }
             }
             
-            // Если Gviz не сработал, пробуем CSV
             data = await this.loadViaCSV(sheetName);
             if (data && data.length > 0) {
-                console.log('CSV данные получены, строк:', data.length);
                 const monthData = this.processCSVData(data, sheetName);
                 if (Object.keys(monthData).length > 0) {
                     if (mergeToScheduleData) {
@@ -295,7 +399,6 @@ class ScheduleApp {
                 }
             }
             
-            console.log(`Не удалось загрузить данные для листа: "${sheetName}"`);
             return null;
             
         } catch (error) {
@@ -307,14 +410,11 @@ class ScheduleApp {
     async loadViaCSV(sheetName) {
         try {
             const url = `https://docs.google.com/spreadsheets/d/1leyP2K649JNfC8XvIV3amZPnQz18jFI95JAJoeXcXGk/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-            
             const response = await fetch(url);
             if (!response.ok) {
                 return null;
             }
-            
             const csvText = await response.text();
-            console.log('CSV данные (первые 500 символов):', csvText.substring(0, 500));
             return this.parseCSV(csvText);
         } catch (error) {
             console.error('Ошибка CSV загрузки:', error);
@@ -334,38 +434,31 @@ class ScheduleApp {
             
             if (char === '"') {
                 if (inQuotes && nextChar === '"') {
-                    // Экранированная кавычка внутри кавычек
                     current += '"';
-                    i++; // Пропускаем следующую кавычку
+                    i++;
                 } else {
-                    // Начало или конец кавычек
                     inQuotes = !inQuotes;
                 }
             } else if (char === ',' && !inQuotes) {
-                // Конец ячейки
                 row.push(current.trim());
                 current = '';
             } else if (char === '\n' && !inQuotes) {
-                // Конец строки
                 row.push(current.trim());
                 result.push(row);
                 row = [];
                 current = '';
             } else if (char === '\r') {
-                // Игнорируем carriage return
                 continue;
             } else {
                 current += char;
             }
         }
         
-        // Добавляем последнюю ячейку если есть
         if (current.trim() || row.length > 0) {
             row.push(current.trim());
             result.push(row);
         }
         
-        console.log('Парсинг CSV результат:', result);
         return result;
     }
 
@@ -400,26 +493,17 @@ class ScheduleApp {
         }
         
         const monthData = {};
-        
-        console.log('Обрабатываем CSV данные:', data);
-        
-        // Ищем строку с последовательностью чисел от 1 до 28
         const dateRowIndex = this.findDateRowBySequence(data);
         if (dateRowIndex === -1) {
-            console.log('Не найдена строка с датами');
             return {};
         }
         
         const dateRow = data[dateRowIndex];
         const dates = this.extractDatesFromRow(dateRow);
         if (dates.length === 0) {
-            console.log('Не найдены даты в строке');
             return {};
         }
         
-        console.log(`Найдены даты: ${dates.join(', ')}`);
-        
-        // Все строки ниже - сотрудники
         const startRow = dateRowIndex + 1;
         for (let i = startRow; i < data.length; i++) {
             const row = data[i];
@@ -428,28 +512,19 @@ class ScheduleApp {
             const employeeName = this.extractEmployeeName(row[0]); 
             if (!employeeName) continue;
             
-            console.log(`Обрабатываем сотрудника: "${employeeName}"`);
-            
             const shifts = [];
             for (let j = 1; j < row.length; j++) {
                 const dateIndex = j - 1;
                 if (dateIndex < dates.length) {
                     const shiftValue = row[j];
                     if (shiftValue && shiftValue.trim()) {
-                        console.log(`Ячейка [${i},${j}]: дата ${dates[dateIndex]}, значение "${shiftValue}"`);
-                        
                         const hours = this.parseHours(shiftValue);
-                        console.log(`Результат парсинга: ${hours}`);
-                        
-                        if (hours !== null && hours >= 0.5) { // Минимум 0.5 часа
+                        if (hours !== null && hours >= 0.5) {
                             shifts.push({
                                 date: dates[dateIndex],
                                 hours: hours,
                                 month: sheetName
                             });
-                            console.log(`✓ Добавлена смена: ${dates[dateIndex]} число - ${hours}ч`);
-                        } else {
-                            console.log(`✗ Пропущена смена: ${dates[dateIndex]} число - невалидные часы`);
                         }
                     }
                 }
@@ -457,13 +532,9 @@ class ScheduleApp {
             
             if (shifts.length > 0) {
                 monthData[employeeName] = shifts;
-                console.log(`✅ Сотрудник "${employeeName}": ${shifts.length} смен`);
-            } else {
-                console.log(`❌ Сотрудник "${employeeName}": нет валидных смен`);
             }
         }
         
-        console.log(`Итог по листу ${sheetName}: ${Object.keys(monthData).length} сотрудников`);
         return monthData;
     }
 
@@ -474,7 +545,6 @@ class ScheduleApp {
             const row = data[rowIndex];
             if (!row) continue;
             
-            // Собираем все числа из строки
             const numbersInRow = [];
             for (let colIndex = 0; colIndex < row.length; colIndex++) {
                 const number = this.extractDateNumber(row[colIndex]);
@@ -483,21 +553,17 @@ class ScheduleApp {
                 }
             }
             
-            // Проверяем, содержит ли строка последовательность от 1 до 28
             if (this.containsSequence(numbersInRow, targetSequence)) {
-                console.log(`✅ Найдена строка с датами: строка ${rowIndex}`);
                 return rowIndex;
             }
         }
         
-        console.log('❌ Не найдено строк с правильной последовательностью дат');
         return -1;
     }
 
     containsSequence(numbers, targetSequence) {
         if (numbers.length < targetSequence.length) return false;
         
-        // Ищем подпоследовательность targetSequence в numbers
         for (let i = 0; i <= numbers.length - targetSequence.length; i++) {
             let match = true;
             for (let j = 0; j < targetSequence.length; j++) {
@@ -522,7 +588,6 @@ class ScheduleApp {
                 dates.push(number);
                 expectedNumber++;
             } else if (number !== null && number > expectedNumber) {
-                // Если пропущены числа, добавляем их
                 while (expectedNumber <= number) {
                     dates.push(expectedNumber);
                     expectedNumber++;
@@ -564,72 +629,55 @@ class ScheduleApp {
         
         const str = value.toString().trim().toLowerCase();
         
-        console.log(`Парсим значение: "${str}"`);
-        
-        // Сначала проверяем специальные текстовые значения
         if (str === 'полсмены' || str === 'половина смены' || str === 'пол смены') {
-            return 4; // полсмены = 4 часа
+            return 4;
         }
         
         if (str === 'целая смена' || str === 'полная смена' || str === 'смена') {
-            return 8; // полная смена = 8 часов
+            return 8;
         }
         
-        // Пробуем разные числовые форматы по приоритету
-        
-        // 1. Просто число с точкой "1.5"
         const numWithDot = parseFloat(str);
         if (!isNaN(numWithDot) && numWithDot > 0) {
-            console.log(`Распознано как число с точкой: ${numWithDot}`);
             return numWithDot;
         }
         
-        // 2. Число с запятой "1,5" - заменяем запятую на точку
         if (str.includes(',')) {
             const normalizedStr = str.replace(',', '.');
             const numWithComma = parseFloat(normalizedStr);
             if (!isNaN(numWithComma) && numWithComma > 0) {
-                console.log(`Распознано как число с запятой: ${numWithComma}`);
                 return numWithComma;
             }
         }
         
-        // 3. Дробь вида "1 1/2" или "3/4"
         const fractionMatch = str.match(/(\d+)\s+(\d+)\/(\d+)/) || str.match(/(\d+)\/(\d+)/);
         if (fractionMatch) {
             let whole = 0;
             let numerator, denominator;
             
             if (fractionMatch[3]) {
-                // формат "1 1/2"
                 whole = parseInt(fractionMatch[1]);
                 numerator = parseInt(fractionMatch[2]);
                 denominator = parseInt(fractionMatch[3]);
             } else {
-                // формат "1/2"
                 numerator = parseInt(fractionMatch[1]);
                 denominator = parseInt(fractionMatch[2]);
             }
             
             if (denominator !== 0) {
-                const result = whole + (numerator / denominator);
-                console.log(`Распознано как дробь: ${result}`);
-                return result;
+                return whole + (numerator / denominator);
             }
         }
         
-        // 4. Число с указанием часов "1.5ч", "2 часа", "3часа"
         const hourMatch = str.match(/(\d+[,.]?\d*)\s*(ч|час|часов|часа)/);
         if (hourMatch) {
             let hourStr = hourMatch[1].replace(',', '.');
             const num = parseFloat(hourStr);
             if (!isNaN(num) && num > 0) {
-                console.log(`Распознано как число с указанием часов: ${num}`);
                 return num;
             }
         }
         
-        // 5. Время в формате "10:00-18:00" или "9:00 - 17:30"
         const timeMatch = str.match(/(\d+):(\d+)\s*[-–]\s*(\d+):(\d+)/);
         if (timeMatch) {
             const startHours = parseInt(timeMatch[1]);
@@ -639,20 +687,15 @@ class ScheduleApp {
             
             const totalMinutes = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
             if (totalMinutes > 0) {
-                const result = totalMinutes / 60;
-                console.log(`Распознано как интервал времени: ${result}`);
-                return result;
+                return totalMinutes / 60;
             }
         }
         
-        // 6. Просто число без указания единиц (последняя попытка)
         const simpleNum = parseFloat(str);
         if (!isNaN(simpleNum) && simpleNum > 0 && simpleNum <= 24) {
-            console.log(`Распознано как простое число: ${simpleNum}`);
             return simpleNum;
         }
         
-        console.log(`Не удалось распознать часы из: "${str}"`);
         return null;
     }
 
@@ -690,7 +733,7 @@ class ScheduleApp {
                     const shiftCell = row.c[j];
                     if (shiftCell && shiftCell.v !== null) {
                         const hours = this.parseHours(shiftCell.v.toString());
-                        if (hours !== null && hours >= 0.5) { // Минимум 0.5 часа
+                        if (hours !== null && hours >= 0.5) {
                             shifts.push({
                                 date: dates[j-1],
                                 hours: hours,
@@ -713,38 +756,20 @@ class ScheduleApp {
         return this.getMonthSheetNameForDate(this.currentDate);
     }
 
-    // ... остальные методы без изменений (initializeEventListeners, initializeAdminControls, и т.д.)
-    // Полный код продолжается как в предыдущей версии...
-
     initializeEventListeners() {
         document.getElementById('prev-week').addEventListener('click', () => this.changeWeek(-1));
         document.getElementById('next-week').addEventListener('click', () => this.changeWeek(1));
         document.getElementById('toggle-view').addEventListener('click', () => this.toggleView());
         document.getElementById('show-only-mine').addEventListener('change', (e) => this.toggleFilter(e.target.checked));
-    }
-
-    initializeAdminControls() {
-        const globalFilterContainer = document.createElement('div');
-        globalFilterContainer.className = 'global-filter';
-        globalFilterContainer.innerHTML = `
-            <label class="checkbox-container">
-                <input type="checkbox" id="show-only-registered" ${this.globalFilterSettings.showOnlyRegistered ? 'checked' : ''}>
-                <span class="checkmark"></span>
-                Показывать только зарегистрированных сотрудников
-            </label>
-        `;
-        
-        document.getElementById('filters-panel').prepend(globalFilterContainer);
-        
-        document.getElementById('show-only-registered').addEventListener('change', (e) => {
-            this.toggleGlobalFilter(e.target.checked);
-        });
+        document.getElementById('global-show-only-registered').addEventListener('change', (e) => this.toggleGlobalFilter(e.target.checked));
     }
 
     async toggleGlobalFilter(showOnlyRegistered) {
         this.globalFilterSettings.showOnlyRegistered = showOnlyRegistered;
         await firebaseService.saveGlobalFilterSettings(this.globalFilterSettings);
-        this.render();
+        if (this.currentPage === 'schedule') {
+            this.render();
+        }
     }
 
     changeWeek(direction) {
@@ -753,14 +778,22 @@ class ScheduleApp {
         } else {
             this.currentDate.setDate(this.currentDate.getDate() + (direction * 7));
         }
-        this.loadScheduleData().then(() => this.render());
+        this.loadScheduleData().then(() => {
+            if (this.currentPage === 'schedule') {
+                this.render();
+            }
+        });
     }
 
     toggleView() {
         this.isMonthView = !this.isMonthView;
         const toggleBtn = document.getElementById('toggle-view');
         toggleBtn.textContent = this.isMonthView ? '▲' : '▼';
-        this.loadScheduleData().then(() => this.render());
+        this.loadScheduleData().then(() => {
+            if (this.currentPage === 'schedule') {
+                this.render();
+            }
+        });
     }
 
     async toggleFilter(showOnlyMine) {
@@ -768,14 +801,13 @@ class ScheduleApp {
         if (this.user) {
             await firebaseService.saveFilterSettings(this.user.id, this.filterSettings);
         }
-        this.render();
+        if (this.currentPage === 'schedule') {
+            this.render();
+        }
     }
 
     render() {
-        console.log('=== RENDER START ===');
-        
         this.updateNavigation();
-        this.renderColorPicker();
         
         const employeesToShow = this.getFilteredEmployees();
         
@@ -783,99 +815,6 @@ class ScheduleApp {
             this.renderMonthView(employeesToShow);
         } else {
             this.renderWeekView(employeesToShow);
-        }
-    }
-
-    renderColorPicker() {
-        const filtersPanel = document.getElementById('filters-panel');
-        
-        // Удаляем старый цветовой пикер если есть
-        const oldPicker = document.getElementById('color-picker');
-        if (oldPicker) {
-            oldPicker.remove();
-        }
-        
-        if (!this.user) return;
-        
-        const colorPicker = document.createElement('div');
-        colorPicker.id = 'color-picker';
-        colorPicker.className = 'color-picker';
-        
-        const userColor = this.user.color || { h: 200, s: 80, l: 60 };
-        const hslColor = `hsl(${userColor.h}, ${userColor.s}%, ${userColor.l}%)`;
-        
-        colorPicker.innerHTML = `
-            <div class="color-picker-header">
-                <span>Цвет ваших смен в графике</span>
-                <button id="toggle-color-picker" class="toggle-color-btn">
-                    ${this.showColorPicker ? '▲' : '▼'}
-                </button>
-            </div>
-            <div class="color-preview" style="background-color: ${hslColor}; margin: 5px 0; height: 20px; border: 1px solid #555;"></div>
-            <div class="color-controls" style="${this.showColorPicker ? '' : 'display: none;'}">
-                <div class="slider-container">
-                    <span>H</span>
-                    <input type="range" min="0" max="360" value="${userColor.h}" class="hue-slider">
-                    <span>${userColor.h}</span>
-                </div>
-                <div class="slider-container">
-                    <span>S</span>
-                    <input type="range" min="0" max="100" value="${userColor.s}" class="saturation-slider">
-                    <span>${userColor.s}%</span>
-                </div>
-                <div class="slider-container">
-                    <span>L</span>
-                    <input type="range" min="0" max="100" value="${userColor.l}" class="lightness-slider">
-                    <span>${userColor.l}%</span>
-                </div>
-            </div>
-        `;
-        
-        filtersPanel.appendChild(colorPicker);
-        
-        // Обработчики событий
-        document.getElementById('toggle-color-picker').addEventListener('click', () => {
-            this.showColorPicker = !this.showColorPicker;
-            this.renderColorPicker();
-        });
-        
-        const hueSlider = colorPicker.querySelector('.hue-slider');
-        const saturationSlider = colorPicker.querySelector('.saturation-slider');
-        const lightnessSlider = colorPicker.querySelector('.lightness-slider');
-        
-        const updateColor = () => {
-            const newColor = {
-                h: parseInt(hueSlider.value),
-                s: parseInt(saturationSlider.value),
-                l: parseInt(lightnessSlider.value)
-            };
-            
-            // Обновляем предпросмотр
-            const preview = colorPicker.querySelector('.color-preview');
-            preview.style.backgroundColor = `hsl(${newColor.h}, ${newColor.s}%, ${newColor.l}%)`;
-            
-            // Обновляем значения
-            hueSlider.nextElementSibling.textContent = newColor.h;
-            saturationSlider.nextElementSibling.textContent = newColor.s + '%';
-            lightnessSlider.nextElementSibling.textContent = newColor.l + '%';
-            
-            // Сохраняем в базу данных
-            this.saveUserColor(newColor);
-        };
-        
-        hueSlider.addEventListener('input', updateColor);
-        saturationSlider.addEventListener('input', updateColor);
-        lightnessSlider.addEventListener('input', updateColor);
-    }
-
-    async saveUserColor(color) {
-        if (this.user) {
-            await firebaseService.updateUserColor(this.user.id, color);
-            this.user.color = color;
-            // Обновляем всех пользователей
-            await this.loadAllUsers();
-            // Перерисовываем график
-            this.render();
         }
     }
 
@@ -914,7 +853,6 @@ class ScheduleApp {
         
         let html = '<div class="calendar-grid week-view-grid">';
         
-        // Заголовки дней
         html += '<div class="week-header employee-header"></div>';
         for (let i = 0; i < 7; i++) {
             const day = new Date(weekStart);
@@ -923,7 +861,6 @@ class ScheduleApp {
             html += `<div class="week-header">${this.getDayName(day)}<br>${day.getDate()} ${monthName}</div>`;
         }
         
-        // Разделяем сотрудников на "моих" и "остальных"
         const myEmployees = [];
         const otherEmployees = [];
         
@@ -935,10 +872,6 @@ class ScheduleApp {
             }
         });
         
-        console.log('Мои сотрудники для отображения:', myEmployees);
-        console.log('Остальные сотрудники для отображения:', otherEmployees);
-        
-        // Сначала отображаем "моих" сотрудников
         myEmployees.forEach(employee => {
             html += `<div class="week-time-cell my-employee">${employee}</div>`;
             
@@ -951,18 +884,15 @@ class ScheduleApp {
                 html += `<div class="week-day">`;
                 
                 const shifts = this.getShiftsForDay(employee, dayNumber, dayMonth);
-                console.log(`Смены для ${employee} ${dayNumber}.${dayMonth}:`, shifts);
-                
                 shifts.forEach(shift => {
                     const color = this.getEmployeeColor(employee);
-                    html += this.renderShift(shift, color, true); // true - моя смена
+                    html += this.renderShift(shift, color, true);
                 });
                 
                 html += `</div>`;
             }
         });
         
-        // Затем отображаем "остальных" сотрудников
         otherEmployees.forEach(employee => {
             html += `<div class="week-time-cell">${employee}</div>`;
             
@@ -975,10 +905,9 @@ class ScheduleApp {
                 html += `<div class="week-day">`;
                 
                 const shifts = this.getShiftsForDay(employee, dayNumber, dayMonth);
-                
                 shifts.forEach(shift => {
                     const color = this.getEmployeeColor(employee);
-                    html += this.renderShift(shift, color, false); // false - не моя смена
+                    html += this.renderShift(shift, color, false);
                 });
                 
                 html += `</div>`;
@@ -1034,7 +963,6 @@ class ScheduleApp {
             html += `<div class="month-day ${isToday ? 'today' : ''}">`;
             html += `<div class="day-number">${day}</div>`;
             
-            // Разделяем смены на "мои" и "остальные"
             const myShifts = [];
             const otherShifts = [];
             
@@ -1053,7 +981,6 @@ class ScheduleApp {
                 });
             });
             
-            // Сначала отображаем "мои" смены, потом "остальные"
             html += myShifts.join('');
             html += otherShifts.join('');
             
@@ -1098,7 +1025,6 @@ class ScheduleApp {
     }
 
     getEmployeeColor(employeeName) {
-        // Ищем пользователя, которому привязан этот сотрудник
         for (const userId in this.allAttachments) {
             const attachedEmployees = this.allAttachments[userId];
             if (attachedEmployees.includes(employeeName)) {
@@ -1109,7 +1035,6 @@ class ScheduleApp {
             }
         }
         
-        // Если сотрудник не привязан ни к кому, используем цвет по умолчанию
         return this.generateColorFromName(employeeName);
     }
 
@@ -1158,6 +1083,21 @@ class ScheduleApp {
 
     async loadGlobalFilterSettings() {
         this.globalFilterSettings = await firebaseService.getGlobalFilterSettings();
+        const checkbox = document.getElementById('global-show-only-registered');
+        if (checkbox) {
+            checkbox.checked = this.globalFilterSettings.showOnlyRegistered;
+        }
+    }
+
+    async saveUserColor(color) {
+        if (this.user) {
+            await firebaseService.updateUserColor(this.user.id, color);
+            this.user.color = color;
+            await this.loadAllUsers();
+            if (this.currentPage === 'schedule') {
+                this.render();
+            }
+        }
     }
 }
 
