@@ -5,6 +5,7 @@
     <title>WorkSchedule</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script type="module" src="firebase.js"></script>
     <script type="module" src="admin-panel.js"></script>
@@ -12,6 +13,18 @@
 </head>
 <body>
     <div id="app">
+        <!-- Фоновые элементы -->
+        <div class="ellipse6"></div>
+        <div class="ellipse5"></div>
+        <div class="ellipse7"></div>
+        <div class="ellipse8"></div>
+        
+        <!-- Заголовок приложения -->
+        <div class="app-header">
+            <div class="warpoint">WARPOINT</div>
+            <div class="tracker">TRACKER</div>
+        </div>
+        
         <!-- Загрузка -->
         <div id="loading">Загрузка...</div>
         
@@ -37,30 +50,32 @@
                     <h1>График работы</h1>
                 </div>
                 <div class="page-content">
-                    <!-- Фильтры -->
-                    <div id="filters-panel">
-                        <label class="checkbox-container">
-                            <input type="checkbox" id="show-only-mine">
-                            <span class="checkmark"></span>
-                            Только мои смены
-                        </label>
-                    </div>
-
-                    <!-- Навигация по неделям/месяцам -->
-                    <div id="navigation">
-                        <button id="prev-week" class="nav-btn">←</button>
+                    <!-- Навигация по месяцам -->
+                    <div class="month-navigation">
+                        <button id="prev-week" class="nav-btn"></button>
                         <div id="current-period"></div>
-                        <button id="next-week" class="nav-btn">→</button>
+                        <button id="next-week" class="nav-btn next"></button>
                     </div>
 
-                    <!-- Переключение вида -->
-                    <button id="toggle-view" class="toggle-btn">▼</button>
+                    <!-- Дни недели -->
+                    <div class="week-days">
+                        <div class="week-day">ПН</div>
+                        <div class="week-day">ВТ</div>
+                        <div class="week-day">СР</div>
+                        <div class="week-day">ЧТ</div>
+                        <div class="week-day">ПТ</div>
+                        <div class="week-day">СБ</div>
+                        <div class="week-day">ВС</div>
+                    </div>
 
-                    <!-- Календарь -->
-                    <div id="calendar-container">
-                        <div id="week-view"></div>
-                        <div id="month-view" class="hidden"></div>
-                        <!-- Контейнер для карточек смен будет добавляться динамически -->
+                    <!-- Календарь месяца -->
+                    <div id="month-calendar" class="month-calendar">
+                        <!-- Календарь будет рендериться динамически -->
+                    </div>
+
+                    <!-- Карточки смен -->
+                    <div id="shift-cards-container">
+                        <!-- Карточки будут добавляться динамически -->
                     </div>
                 </div>
             </div>
@@ -116,17 +131,17 @@
         </div>
 
         <!-- Нижнее меню -->
-        <div id="bottom-navigation" class="hidden">
+        <div id="bottom-navigation" class="bottom-navigation hidden">
             <div class="nav-item" data-page="tasks">
-                <div class="nav-icon">📋</div>
+                <div class="nav-icon tasks-icon"></div>
                 <div class="nav-label">Задачи</div>
             </div>
             <div class="nav-item active" data-page="schedule">
-                <div class="nav-icon">📅</div>
+                <div class="nav-icon calendar-icon"></div>
                 <div class="nav-label">График</div>
             </div>
             <div class="nav-item" data-page="profile">
-                <div class="nav-icon">👤</div>
+                <div class="nav-icon profile-icon"></div>
                 <div class="nav-label">Профиль</div>
             </div>
         </div>
