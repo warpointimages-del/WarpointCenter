@@ -17,7 +17,9 @@ class ScheduleApp {
         this.showColorPicker = false;
         this.weekData = {};
         this.currentPage = 'schedule';
-        this.receiptsData = {}; // { date: { employee: [receipts] } }
+        this.receiptsData = {};
+        this.currentMonthData = {};
+        this.currentShiftData = null;
         
         this.init();
     }
@@ -45,6 +47,7 @@ class ScheduleApp {
             await this.loadFilterSettings();
             await this.loadGlobalFilterSettings();
             await this.loadAvailableMonths();
+            await this.loadCurrentMonthData();
             await this.loadScheduleData();
             await this.loadReceiptsData();
             this.initializeEventListeners();
@@ -66,34 +69,128 @@ class ScheduleApp {
         }
     }
 
-    // === НОВЫЕ МЕТОДЫ ДЛЯ ЧЕКОВ ===
+    // === МЕТОДЫ ДЛЯ ТЕКУЩЕЙ СМЕНЫ ===
     
-    async loadReceiptsData() {
-        // Загрузка чеков из Firebase
-        // Пока заглушка - в реальности нужно добавить методы в firebase.js
-        this.receiptsData = {};
+    async loadCurrentMonthData() {
+        const currentMonthSheet = this.getMonthSheetNameForDate(new Date());
+        this.currentMonthData = await this.loadSpecificMonthData(currentMonthSheet, false);
+        this.findCurrentShift();
     }
 
-    async saveReceipt(date, receiptData) {
-        // Сохранение чека в Firebase
-        // Пока заглушка
-        console.log('Сохранение чека:', date, receiptData);
+    findCurrentShift() {
+        const today = new Date();
+        const todayDay = today.getDate();
+        const currentMonthSheet = this.getMonthSheetNameForDate(today);
         
-        if (!this.receiptsData[date]) {
-            this.receiptsData[date] = {};
-        }
-        if (!this.receiptsData[date][this.user.id]) {
-            this.receiptsData[date][this.user.id] = [];
-        }
+        this.currentShiftData = null;
         
-        this.receiptsData[date][this.user.id].push({
-            ...receiptData,
-            id: Date.now(),
-            timestamp: Date.now()
+        Object.entries(this.currentMonthData).forEach(([employee, shifts]) => {
+            if (this.userAttachments.includes(employee)) {
+                shifts.forEach(shift => {
+                    if (shift.date === todayDay && shift.month === currentMonthSheet) {
+                        this.currentShiftData = {
+                            employee,
+                            shift,
+                            position: this.getEmployeePosition(employee),
+                            displayName: this.getEmployeeDisplayName(employee)
+                        };
+                    }
+                });
+            }
         });
     }
 
-    // === ОБНОВЛЕННЫЙ РЕНДЕРИНГ СМЕН ===
+    renderCurrentShift() {
+        const container = document.getElementById('current-shift-container');
+        if (!container) return;
+        
+        if (this.currentShiftData) {
+            const { employee, shift, position, displayName } = this.currentShiftData;
+            const shiftDate = new Date();
+            shiftDate.setDate(shift.date);
+            
+            container.innerHTML = `
+                <div class="shift-card" data-employee="${employee}" data-date="${shift.date}">
+                    <div class="shift-date">${this.formatShiftDate(shiftDate)}</div>
+                    
+                    <div class="shift-info">
+                        <div class="info-row">
+                            <div class="info-label">локация:</div>
+                            <div class="info-value">${this.getShiftLocation(shift)}</div>
+                        </div>
+                        <div class="info-row">
+                            <div class="info-label">должность:</div>
+                            <div class="info-value">${position}</div>
+                        </div>
+                        ${displayName ? `
+                        <div class="info-row">
+                            <div class="info-label">сотрудник:</div>
+                            <div class="info-value">${displayName}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="shift-time">${this.formatShiftTime(shift.hours)}</div>
+                    <div class="shift-title">смена</div>
+
+                    <div class="receipt-button">
+                        <div class="receipt-icon"></div>
+                    </div>
+                </div>
+            `;
+            
+            this.attachReceiptButtonHandlers();
+        } else {
+            container.innerHTML = `
+                <div class="shift-card">
+                    <div class="shift-date">${this.formatShiftDate(new Date())}</div>
+                    
+                    <div class="shift-info">
+                        <div class="info-row">
+                            <div class="info-label">локация:</div>
+                            <div class="info-value">БЦ "Станколит"</div>
+                        </div>
+                        <div class="info-row">
+                            <div class="info-label">должность:</div>
+                            <div class="info-value">${this.user?.position || 'Стажёр'}</div>
+                        </div>
+                    </div>
+
+                    <div class="shift-time">--:-- - --:--</div>
+                    <div class="shift-title">смена</div>
+
+                    <div style="text-align: center; color: #888; margin-top: 20px;">
+                        Смены на сегодня нет
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    // === МЕТОДЫ ДЛЯ ОТОБРАЖАЕМЫХ ИМЕН ===
+
+    getEmployeeDisplayName(employeeName) {
+        for (const userId in this.allAttachments) {
+            const attachedEmployees = this.allAttachments[userId];
+            if (attachedEmployees.includes(employeeName)) {
+                const user = this.allUsers[userId];
+                if (user && user.displayName) {
+                    return user.displayName;
+                }
+            }
+        }
+        return null;
+    }
+
+    getEmployeeDisplayNameForSchedule(employeeName) {
+        const displayName = this.getEmployeeDisplayName(employeeName);
+        if (displayName) {
+            return `<span class="employee-display-name" title="${employeeName}">${displayName}</span>`;
+        }
+        return employeeName;
+    }
+
+    // === ОСНОВНЫЕ МЕТОДЫ РЕНДЕРИНГА ===
 
     renderCurrentPage() {
         if (this.currentPage === 'schedule') {
@@ -105,6 +202,7 @@ class ScheduleApp {
 
     renderSchedulePage() {
         this.render();
+        this.renderCurrentShift();
     }
 
     renderProfilePage() {
@@ -183,16 +281,13 @@ class ScheduleApp {
                 l: parseInt(lightnessSlider.value)
             };
             
-            // Обновляем предпросмотр
             const preview = container.querySelector('.color-preview');
             preview.style.backgroundColor = `hsl(${newColor.h}, ${newColor.s}%, ${newColor.l}%)`;
             
-            // Обновляем значения
             hueSlider.nextElementSibling.textContent = newColor.h;
             saturationSlider.nextElementSibling.textContent = newColor.s + '%';
             lightnessSlider.nextElementSibling.textContent = newColor.l + '%';
             
-            // Сохраняем в базу данных
             this.saveUserColor(newColor);
         };
         
@@ -223,9 +318,6 @@ class ScheduleApp {
         } else {
             this.renderWeekView(employeesToShow);
         }
-        
-        // Всегда показываем карточки смен для сегодняшнего дня
-        this.renderShiftCards();
     }
 
     updateNavigation() {
@@ -263,7 +355,6 @@ class ScheduleApp {
         
         let html = '<div class="calendar-grid week-view-grid">';
         
-        // Заголовки дней
         html += '<div class="week-header employee-header"></div>';
         for (let i = 0; i < 7; i++) {
             const day = new Date(weekStart);
@@ -272,13 +363,13 @@ class ScheduleApp {
             html += `<div class="week-header">${this.getDayName(day)}<br>${day.getDate()} ${monthName}</div>`;
         }
         
-        // Сначала отображаем "моих" сотрудников
         const myEmployees = employeesToShow.filter(employee => 
             this.userAttachments.includes(employee)
         );
         
         myEmployees.forEach(employee => {
-            html += `<div class="week-time-cell my-employee">${employee}</div>`;
+            const displayName = this.getEmployeeDisplayNameForSchedule(employee);
+            html += `<div class="week-time-cell my-employee">${displayName}</div>`;
             
             for (let i = 0; i < 7; i++) {
                 const day = new Date(weekStart);
@@ -298,13 +389,13 @@ class ScheduleApp {
             }
         });
         
-        // Затем отображаем "остальных" сотрудников
         const otherEmployees = employeesToShow.filter(employee => 
             !this.userAttachments.includes(employee)
         );
         
         otherEmployees.forEach(employee => {
-            html += `<div class="week-time-cell">${employee}</div>`;
+            const displayName = this.getEmployeeDisplayNameForSchedule(employee);
+            html += `<div class="week-time-cell">${displayName}</div>`;
             
             for (let i = 0; i < 7; i++) {
                 const day = new Date(weekStart);
@@ -328,118 +419,98 @@ class ScheduleApp {
         weekView.innerHTML = html;
     }
 
-    renderShiftCards() {
+    renderMonthView(employeesToShow) {
+        const weekView = document.getElementById('week-view');
+        const monthView = document.getElementById('month-view');
+        
+        weekView.classList.add('hidden');
+        monthView.classList.remove('hidden');
+        
+        const firstDay = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1);
+        const lastDay = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth() + 1, 0);
+        
+        let html = '<div class="calendar-grid">';
+        
+        const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+        dayNames.forEach(day => {
+            html += `<div class="month-header">${day}</div>`;
+        });
+        
+        const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+        for (let i = 0; i < startDay; i++) {
+            html += `<div class="month-day other-month"></div>`;
+        }
+        
         const today = new Date();
-        const todayKey = this.formatDateKey(today);
-        
-        // Находим смены на сегодня
-        const todayShifts = [];
-        const dataSource = this.isMonthView ? this.scheduleData : this.weekData;
-        
-        Object.entries(dataSource).forEach(([employee, shifts]) => {
-            shifts.forEach(shift => {
-                const shiftDate = new Date();
-                shiftDate.setDate(shift.date);
-                if (this.formatDateKey(shiftDate) === todayKey && this.userAttachments.includes(employee)) {
-                    todayShifts.push({
-                        employee,
-                        shift,
-                        isMyShift: true
-                    });
-                }
-            });
-        });
-        
-        // Рендерим карточки смен
-        const calendarContainer = document.getElementById('calendar-container');
-        
-        // Удаляем старые карточки
-        const oldCards = calendarContainer.querySelector('.shift-cards-container');
-        if (oldCards) {
-            oldCards.remove();
-        }
-        
-        let cardsHtml = '';
-        
-        todayShifts.forEach(({ employee, shift, isMyShift }) => {
-            if (isMyShift) {
-                cardsHtml += this.renderShiftCard(employee, shift);
-            }
-        });
-        
-        // Если есть карточки, добавляем их после календаря
-        if (cardsHtml) {
-            calendarContainer.innerHTML += `<div class="shift-cards-container">${cardsHtml}</div>`;
+        for (let day = 1; day <= lastDay.getDate(); day++) {
+            const isToday = today.getDate() === day && 
+                           today.getMonth() === this.currentDate.getMonth() && 
+                           today.getFullYear() === this.currentDate.getFullYear();
             
-            // Добавляем обработчики для кнопок чеков
-            this.attachReceiptButtonHandlers();
+            html += `<div class="month-day ${isToday ? 'today' : ''}">`;
+            html += `<div class="day-number">${day}</div>`;
+            
+            const myShifts = [];
+            const otherShifts = [];
+            
+            employeesToShow.forEach(employee => {
+                const shifts = this.scheduleData[employee] || [];
+                const dayShifts = shifts.filter(shift => shift.date === day);
+                
+                dayShifts.forEach(shift => {
+                    const color = this.getEmployeeColor(employee);
+                    const shiftHtml = this.renderShift(shift, color, this.userAttachments.includes(employee));
+                    if (this.userAttachments.includes(employee)) {
+                        myShifts.push(shiftHtml);
+                    } else {
+                        otherShifts.push(shiftHtml);
+                    }
+                });
+            });
+            
+            html += myShifts.join('');
+            html += otherShifts.join('');
+            
+            html += `</div>`;
         }
+        
+        html += '</div>';
+        monthView.innerHTML = html;
     }
 
-    renderShiftCard(employee, shift) {
-        const shiftDate = new Date();
-        shiftDate.setDate(shift.date);
-        
-        const formattedDate = this.formatShiftDate(shiftDate);
-        const shiftTime = this.formatShiftTime(shift.hours);
-        const position = this.getEmployeePosition(employee);
-        const location = this.getShiftLocation(shift);
-        
+    renderShift(shift, color, isMyShift = false) {
+        const shiftClass = isMyShift ? 'shift-parallelogram my-shift' : 'shift-parallelogram other-shift';
+        const hsl = `hsl(${color.h}, ${color.s}%, ${color.l}%)`;
         return `
-            <div class="shift-card" data-employee="${employee}" data-date="${shift.date}">
-                <div class="shift-date">${formattedDate}</div>
-                
-                <div class="shift-info">
-                    <div class="info-row">
-                        <div class="info-label">локация:</div>
-                        <div class="info-value">${location}</div>
-                    </div>
-                    <div class="info-row">
-                        <div class="info-label">должность:</div>
-                        <div class="info-value">${position}</div>
-                    </div>
-                </div>
-
-                <div class="shift-time">${shiftTime}</div>
-                <div class="shift-title">смена</div>
-
-                <div class="receipt-button">
-                    <div class="receipt-icon"></div>
+            <div class="${shiftClass}" style="background-color: ${hsl}">
+                <div class="shift-content">
+                    ${shift.hours > 1 ? shift.hours + 'ч' : ''}
                 </div>
             </div>
         `;
     }
 
-    formatShiftDate(date) {
-        const months = [
-            'ЯНВАРЯ', 'ФЕВРАЛЯ', 'МАРТА', 'АПРЕЛЯ', 'МАЯ', 'ИЮНЯ',
-            'ИЮЛЯ', 'АВГУСТА', 'СЕНТЯБРЯ', 'ОКТЯБРЯ', 'НОЯБРЯ', 'ДЕКАБРЯ'
-        ];
-        return `${date.getDate()} ${months[date.getMonth()]}`;
+    // === МЕТОДЫ ДЛЯ ЧЕКОВ ===
+    
+    async loadReceiptsData() {
+        this.receiptsData = {};
     }
 
-    formatShiftTime(hours) {
-        const startHour = 10;
-        const endHour = startHour + Math.floor(hours);
-        return `${startHour}:30 - ${endHour}:00`;
-    }
-
-    getEmployeePosition(employee) {
-        // Ищем пользователя, к которому привязан сотрудник
-        for (const userId in this.allAttachments) {
-            const attachedEmployees = this.allAttachments[userId];
-            if (attachedEmployees.includes(employee)) {
-                const user = this.allUsers[userId];
-                if (user && user.position) {
-                    return user.position;
-                }
-            }
+    async saveReceipt(date, receiptData) {
+        console.log('Сохранение чека:', date, receiptData);
+        
+        if (!this.receiptsData[date]) {
+            this.receiptsData[date] = {};
         }
-        return "Стажёр";
-    }
-
-    getShiftLocation(shift) {
-        return 'БЦ "Станколит"';
+        if (!this.receiptsData[date][this.user.id]) {
+            this.receiptsData[date][this.user.id] = [];
+        }
+        
+        this.receiptsData[date][this.user.id].push({
+            ...receiptData,
+            id: Date.now(),
+            timestamp: Date.now()
+        });
     }
 
     attachReceiptButtonHandlers() {
@@ -452,8 +523,6 @@ class ScheduleApp {
             });
         });
     }
-
-    // === МОДАЛЬНОЕ ОКНО ЧЕКОВ ===
 
     openReceiptModal(employee, date) {
         const today = new Date();
@@ -481,15 +550,12 @@ class ScheduleApp {
                     </div>
                     
                     <div class="receipt-list">
-                        <!-- Список сохраненных чеков будет здесь -->
                     </div>
                 </div>
             </div>
         `;
         
         document.body.insertAdjacentHTML('beforeend', modalHtml);
-        
-        // Обработчики модального окна
         this.attachModalHandlers(employee, date);
     }
 
@@ -499,7 +565,6 @@ class ScheduleApp {
         const submitBtn = modal.querySelector('.receipt-submit-btn');
         const formsContainer = modal.querySelector('.receipt-forms-container');
         
-        // Закрытие модального окна
         closeBtn.addEventListener('click', () => {
             modal.remove();
         });
@@ -510,19 +575,16 @@ class ScheduleApp {
             }
         });
         
-        // Отправка чека
         submitBtn.addEventListener('click', () => {
             this.submitReceipt(employee, date, formsContainer);
         });
         
-        // Enter для отправки
         modal.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 this.submitReceipt(employee, date, formsContainer);
             }
         });
         
-        // Загружаем существующие чеки
         this.loadReceiptsForModal(employee, date);
     }
 
@@ -552,15 +614,11 @@ class ScheduleApp {
         try {
             await this.saveReceipt(date, receiptData);
             
-            // Делаем поля неактивными
             numberInput.disabled = true;
             descriptionInput.disabled = true;
             amountInput.disabled = true;
             
-            // Добавляем новую форму
             this.addNewReceiptForm(formsContainer);
-            
-            // Обновляем список чеков
             this.loadReceiptsForModal(employee, date);
             
         } catch (error) {
@@ -585,7 +643,6 @@ class ScheduleApp {
         
         formsContainer.insertAdjacentHTML('beforeend', newFormHtml);
         
-        // Добавляем обработчик для новой кнопки
         const newSubmitBtn = formsContainer.querySelector('.receipt-form:last-child .receipt-submit-btn');
         newSubmitBtn.addEventListener('click', () => {
             const employee = document.querySelector('.receipt-modal').getAttribute('data-employee');
@@ -616,11 +673,7 @@ class ScheduleApp {
         `).join('');
     }
 
-    formatDateKey(date) {
-        return date.toISOString().split('T')[0];
-    }
-
-    // === СУЩЕСТВУЮЩИЕ МЕТОДЫ ===
+    // === СИСТЕМНЫЕ МЕТОДЫ ===
 
     async initializeUser() {
         const initData = this.tg.initDataUnsafe;
@@ -1194,77 +1247,6 @@ class ScheduleApp {
         return months[monthIndex];
     }
 
-    renderMonthView(employeesToShow) {
-        const weekView = document.getElementById('week-view');
-        const monthView = document.getElementById('month-view');
-        
-        weekView.classList.add('hidden');
-        monthView.classList.remove('hidden');
-        
-        const firstDay = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1);
-        const lastDay = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth() + 1, 0);
-        
-        let html = '<div class="calendar-grid">';
-        
-        const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-        dayNames.forEach(day => {
-            html += `<div class="month-header">${day}</div>`;
-        });
-        
-        const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
-        for (let i = 0; i < startDay; i++) {
-            html += `<div class="month-day other-month"></div>`;
-        }
-        
-        const today = new Date();
-        for (let day = 1; day <= lastDay.getDate(); day++) {
-            const isToday = today.getDate() === day && 
-                           today.getMonth() === this.currentDate.getMonth() && 
-                           today.getFullYear() === this.currentDate.getFullYear();
-            
-            html += `<div class="month-day ${isToday ? 'today' : ''}">`;
-            html += `<div class="day-number">${day}</div>`;
-            
-            const myShifts = [];
-            const otherShifts = [];
-            
-            employeesToShow.forEach(employee => {
-                const shifts = this.scheduleData[employee] || [];
-                const dayShifts = shifts.filter(shift => shift.date === day);
-                
-                dayShifts.forEach(shift => {
-                    const color = this.getEmployeeColor(employee);
-                    const shiftHtml = this.renderShift(shift, color, this.userAttachments.includes(employee));
-                    if (this.userAttachments.includes(employee)) {
-                        myShifts.push(shiftHtml);
-                    } else {
-                        otherShifts.push(shiftHtml);
-                    }
-                });
-            });
-            
-            html += myShifts.join('');
-            html += otherShifts.join('');
-            
-            html += `</div>`;
-        }
-        
-        html += '</div>';
-        monthView.innerHTML = html;
-    }
-
-    renderShift(shift, color, isMyShift = false) {
-        const shiftClass = isMyShift ? 'shift-parallelogram my-shift' : 'shift-parallelogram other-shift';
-        const hsl = `hsl(${color.h}, ${color.s}%, ${color.l}%)`;
-        return `
-            <div class="${shiftClass}" style="background-color: ${hsl}">
-                <div class="shift-content">
-                    ${shift.hours > 1 ? shift.hours + 'ч' : ''}
-                </div>
-            </div>
-        `;
-    }
-
     getFilteredEmployees() {
         const dataSource = this.isMonthView ? this.scheduleData : this.weekData;
         const allEmployees = Object.keys(dataSource);
@@ -1300,6 +1282,23 @@ class ScheduleApp {
         return this.generateColorFromName(employeeName);
     }
 
+    getEmployeePosition(employeeName) {
+        for (const userId in this.allAttachments) {
+            const attachedEmployees = this.allAttachments[userId];
+            if (attachedEmployees.includes(employeeName)) {
+                const user = this.allUsers[userId];
+                if (user && user.position) {
+                    return user.position;
+                }
+            }
+        }
+        return "Стажёр";
+    }
+
+    getShiftLocation(shift) {
+        return 'БЦ "Станколит"';
+    }
+
     generateRandomColor() {
         return {
             h: Math.floor(Math.random() * 360),
@@ -1331,6 +1330,24 @@ class ScheduleApp {
             day: '2-digit', 
             month: '2-digit' 
         });
+    }
+
+    formatShiftDate(date) {
+        const months = [
+            'ЯНВАРЯ', 'ФЕВРАЛЯ', 'МАРТА', 'АПРЕЛЯ', 'МАЯ', 'ИЮНЯ',
+            'ИЮЛЯ', 'АВГУСТА', 'СЕНТЯБРЯ', 'ОКТЯБРЯ', 'НОЯБРЯ', 'ДЕКАБРЯ'
+        ];
+        return `${date.getDate()} ${months[date.getMonth()]}`;
+    }
+
+    formatShiftTime(hours) {
+        const startHour = 10;
+        const endHour = startHour + Math.floor(hours);
+        return `${startHour}:30 - ${endHour}:00`;
+    }
+
+    formatDateKey(date) {
+        return date.toISOString().split('T')[0];
     }
 
     initializeEventListeners() {
