@@ -1,5 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js';
-import { getDatabase, ref, set, get, child, update, remove } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js';
+import { getDatabase, ref, set, get, child, update, remove, push } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js';
 
 const firebaseConfig = {
     apiKey: "AIzaSyAbLz1MnfjYIQMDkmqgMa09Z3W_j8dnJbM",
@@ -164,6 +164,112 @@ class FirebaseService {
         } catch (error) {
             console.error('Ошибка получения всех привязок:', error);
             return {};
+        }
+    }
+
+    // === НОВЫЕ МЕТОДЫ ДЛЯ ЧЕКОВ ===
+
+    async saveReceipt(userId, receiptData) {
+        try {
+            const receiptKey = push(ref(this.db, 'receipts')).key;
+            const receiptWithId = {
+                ...receiptData,
+                id: receiptKey,
+                userId: userId,
+                createdAt: Date.now()
+            };
+            
+            await set(ref(this.db, `receipts/${receiptKey}`), receiptWithId);
+            
+            // Также сохраняем ссылку на чек по дате и пользователю для быстрого доступа
+            await set(ref(this.db, `userReceipts/${userId}/${receiptData.date}/${receiptKey}`), true);
+            
+            return true;
+        } catch (error) {
+            console.error('Ошибка сохранения чека:', error);
+            return false;
+        }
+    }
+
+    async getReceiptsByUserAndDate(userId, date) {
+        try {
+            const snapshot = await get(child(ref(this.db), `userReceipts/${userId}/${date}`));
+            if (!snapshot.exists()) {
+                return [];
+            }
+            
+            const receiptKeys = Object.keys(snapshot.val());
+            const receipts = [];
+            
+            for (const receiptKey of receiptKeys) {
+                const receiptSnapshot = await get(child(ref(this.db), `receipts/${receiptKey}`));
+                if (receiptSnapshot.exists()) {
+                    receipts.push(receiptSnapshot.val());
+                }
+            }
+            
+            // Сортируем по дате создания (новые сверху)
+            return receipts.sort((a, b) => b.createdAt - a.createdAt);
+        } catch (error) {
+            console.error('Ошибка получения чеков:', error);
+            return [];
+        }
+    }
+
+    async getAllReceiptsByDate(date) {
+        try {
+            const snapshot = await get(child(ref(this.db), 'userReceipts'));
+            if (!snapshot.exists()) {
+                return {};
+            }
+            
+            const allReceipts = {};
+            const users = snapshot.val();
+            
+            for (const userId in users) {
+                if (users[userId][date]) {
+                    const receiptKeys = Object.keys(users[userId][date]);
+                    const userReceipts = [];
+                    
+                    for (const receiptKey of receiptKeys) {
+                        const receiptSnapshot = await get(child(ref(this.db), `receipts/${receiptKey}`));
+                        if (receiptSnapshot.exists()) {
+                            userReceipts.push(receiptSnapshot.val());
+                        }
+                    }
+                    
+                    if (userReceipts.length > 0) {
+                        // Получаем информацию о пользователе
+                        const userSnapshot = await get(child(ref(this.db), `users/${userId}`));
+                        if (userSnapshot.exists()) {
+                            const user = userSnapshot.val();
+                            allReceipts[user.firstName + ' ' + user.lastName] = userReceipts;
+                        } else {
+                            allReceipts[`User_${userId}`] = userReceipts;
+                        }
+                    }
+                }
+            }
+            
+            return allReceipts;
+        } catch (error) {
+            console.error('Ошибка получения всех чеков за дату:', error);
+            return {};
+        }
+    }
+
+    async deleteReceipt(receiptId, userId, date) {
+        try {
+            // Удаляем из основной коллекции
+            await remove(ref(this.db, `receipts/${receiptId}`));
+            
+            // Удаляем из пользовательской коллекции
+            await remove(ref(this.db, `userReceipts/${userId}/${date}/${receiptId}`));
+            
+            return true;
+        } catch (error) {
+            console.error('Ошибка удаления чека:', error);
+            return false;
         }
     }
 
