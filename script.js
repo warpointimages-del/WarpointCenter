@@ -16,7 +16,8 @@ class ScheduleApp {
         this.allAttachments = {};
         this.showColorPicker = false;
         this.weekData = {};
-        this.currentPage = 'schedule'; // Текущая страница по умолчанию
+        this.currentPage = 'schedule';
+        this.receiptsData = {}; // { date: { employee: [receipts] } }
         
         this.init();
     }
@@ -24,6 +25,15 @@ class ScheduleApp {
     async init() {
         try {
             console.log('=== ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ ===');
+            
+            const loadingElement = document.getElementById('loading');
+            const mainContent = document.getElementById('main-content');
+            const bottomNav = document.getElementById('bottom-navigation');
+            
+            if (!loadingElement || !mainContent || !bottomNav) {
+                throw new Error('Не найдены необходимые элементы DOM');
+            }
+            
             this.tg.expand();
             this.tg.enableClosingConfirmation();
             
@@ -36,56 +46,54 @@ class ScheduleApp {
             await this.loadGlobalFilterSettings();
             await this.loadAvailableMonths();
             await this.loadScheduleData();
+            await this.loadReceiptsData();
             this.initializeEventListeners();
             this.initializeNavigation();
             this.renderCurrentPage();
             
-            document.getElementById('loading').classList.add('hidden');
-            document.getElementById('main-content').classList.remove('hidden');
-            document.getElementById('bottom-navigation').classList.remove('hidden');
+            loadingElement.classList.add('hidden');
+            mainContent.classList.remove('hidden');
+            bottomNav.classList.remove('hidden');
+            
+            console.log('Приложение успешно инициализировано');
+            
         } catch (error) {
             console.error('Ошибка инициализации:', error);
-            document.getElementById('loading').textContent = 'Ошибка загрузки: ' + error.message;
+            const loadingElement = document.getElementById('loading');
+            if (loadingElement) {
+                loadingElement.textContent = 'Ошибка загрузки: ' + error.message;
+            }
         }
     }
 
-    // НАВИГАЦИЯ МЕЖДУ СТРАНИЦАМИ
-    initializeNavigation() {
-        const navItems = document.querySelectorAll('.nav-item');
-        navItems.forEach(item => {
-            item.addEventListener('click', () => {
-                const page = item.getAttribute('data-page');
-                this.switchPage(page);
-            });
+    // === НОВЫЕ МЕТОДЫ ДЛЯ ЧЕКОВ ===
+    
+    async loadReceiptsData() {
+        // Загрузка чеков из Firebase
+        // Пока заглушка - в реальности нужно добавить методы в firebase.js
+        this.receiptsData = {};
+    }
+
+    async saveReceipt(date, receiptData) {
+        // Сохранение чека в Firebase
+        // Пока заглушка
+        console.log('Сохранение чека:', date, receiptData);
+        
+        if (!this.receiptsData[date]) {
+            this.receiptsData[date] = {};
+        }
+        if (!this.receiptsData[date][this.user.id]) {
+            this.receiptsData[date][this.user.id] = [];
+        }
+        
+        this.receiptsData[date][this.user.id].push({
+            ...receiptData,
+            id: Date.now(),
+            timestamp: Date.now()
         });
     }
 
-    switchPage(pageName) {
-        // Скрываем все страницы
-        document.querySelectorAll('.page').forEach(page => {
-            page.classList.add('hidden');
-        });
-        
-        // Убираем активный класс у всех кнопок
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.classList.remove('active');
-        });
-        
-        // Показываем выбранную страницу
-        document.getElementById(`${pageName}-page`).classList.remove('hidden');
-        
-        // Активируем соответствующую кнопку
-        document.querySelector(`.nav-item[data-page="${pageName}"]`).classList.add('active');
-        
-        this.currentPage = pageName;
-        
-        // Если переключились на страницу графика - перерисовываем
-        if (pageName === 'schedule') {
-            this.renderSchedulePage();
-        } else if (pageName === 'profile') {
-            this.renderProfilePage();
-        }
-    }
+    // === ОБНОВЛЕННЫЙ РЕНДЕРИНГ СМЕН ===
 
     renderCurrentPage() {
         if (this.currentPage === 'schedule') {
@@ -107,7 +115,7 @@ class ScheduleApp {
 
     renderUserInfo() {
         if (this.user) {
-            const avatar = document.querySelector('.avatar-placeholder');
+            const avatar = document.getElementById('user-avatar-placeholder');
             const fullName = document.getElementById('user-fullname');
             const username = document.getElementById('user-username');
             const status = document.getElementById('user-status');
@@ -198,7 +206,395 @@ class ScheduleApp {
         }
     }
 
-    // ОСТАЛЬНЫЕ МЕТОДЫ БЕЗ ИЗМЕНЕНИЙ (initializeUser, loadAllUsers, и т.д.)
+    render() {
+        this.updateNavigation();
+        
+        const employeesToShow = this.getFilteredEmployees();
+        
+        if (this.isMonthView) {
+            this.renderMonthView(employeesToShow);
+        } else {
+            this.renderWeekView(employeesToShow);
+        }
+    }
+
+    updateNavigation() {
+        const periodElement = document.getElementById('current-period');
+        
+        if (this.isMonthView) {
+            const monthNames = [
+                'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+                'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+            ];
+            const month = monthNames[this.currentDate.getMonth()];
+            const year = this.currentDate.getFullYear();
+            periodElement.textContent = `${month} ${year}`;
+        } else {
+            const weekStart = new Date(this.currentDate);
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+            
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekEnd.getDate() + 6);
+            
+            periodElement.textContent = 
+                `${this.formatDate(weekStart)} - ${this.formatDate(weekEnd)}`;
+        }
+    }
+
+    renderWeekView(employeesToShow) {
+        const weekView = document.getElementById('week-view');
+        const monthView = document.getElementById('month-view');
+        
+        weekView.classList.remove('hidden');
+        monthView.classList.add('hidden');
+        
+        const weekStart = new Date(this.currentDate);
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+        
+        let html = '<div class="calendar-grid week-view-grid">';
+        
+        // Заголовки дней
+        html += '<div class="week-header employee-header"></div>';
+        for (let i = 0; i < 7; i++) {
+            const day = new Date(weekStart);
+            day.setDate(day.getDate() + i);
+            const monthName = this.getMonthName(day.getMonth());
+            html += `<div class="week-header">${this.getDayName(day)}<br>${day.getDate()} ${monthName}</div>`;
+        }
+        
+        // Сначала отображаем "моих" сотрудников
+        const myEmployees = employeesToShow.filter(employee => 
+            this.userAttachments.includes(employee)
+        );
+        
+        myEmployees.forEach(employee => {
+            html += `<div class="week-time-cell my-employee">${employee}</div>`;
+            
+            for (let i = 0; i < 7; i++) {
+                const day = new Date(weekStart);
+                day.setDate(day.getDate() + i);
+                const dayNumber = day.getDate();
+                const dayMonth = this.getMonthSheetNameForDate(day);
+                
+                html += `<div class="week-day">`;
+                
+                const shifts = this.getShiftsForDay(employee, dayNumber, dayMonth);
+                shifts.forEach(shift => {
+                    const color = this.getEmployeeColor(employee);
+                    html += this.renderShift(shift, color, true);
+                });
+                
+                html += `</div>`;
+            }
+        });
+        
+        // Затем отображаем "остальных" сотрудников
+        const otherEmployees = employeesToShow.filter(employee => 
+            !this.userAttachments.includes(employee)
+        );
+        
+        otherEmployees.forEach(employee => {
+            html += `<div class="week-time-cell">${employee}</div>`;
+            
+            for (let i = 0; i < 7; i++) {
+                const day = new Date(weekStart);
+                day.setDate(day.getDate() + i);
+                const dayNumber = day.getDate();
+                const dayMonth = this.getMonthSheetNameForDate(day);
+                
+                html += `<div class="week-day">`;
+                
+                const shifts = this.getShiftsForDay(employee, dayNumber, dayMonth);
+                shifts.forEach(shift => {
+                    const color = this.getEmployeeColor(employee);
+                    html += this.renderShift(shift, color, false);
+                });
+                
+                html += `</div>`;
+            }
+        });
+        
+        html += '</div>';
+        weekView.innerHTML = html;
+        
+        // Добавляем карточки смен для текущего дня
+        this.renderShiftCards();
+    }
+
+    renderShiftCards() {
+        const today = new Date();
+        const todayKey = this.formatDateKey(today);
+        
+        // Находим смены на сегодня
+        const todayShifts = [];
+        const dataSource = this.isMonthView ? this.scheduleData : this.weekData;
+        
+        Object.entries(dataSource).forEach(([employee, shifts]) => {
+            shifts.forEach(shift => {
+                const shiftDate = new Date();
+                shiftDate.setDate(shift.date);
+                if (this.formatDateKey(shiftDate) === todayKey) {
+                    todayShifts.push({
+                        employee,
+                        shift,
+                        isMyShift: this.userAttachments.includes(employee)
+                    });
+                }
+            });
+        });
+        
+        // Рендерим карточки смен
+        const calendarContainer = document.getElementById('calendar-container');
+        let cardsHtml = '';
+        
+        todayShifts.forEach(({ employee, shift, isMyShift }) => {
+            if (isMyShift) {
+                cardsHtml += this.renderShiftCard(employee, shift);
+            }
+        });
+        
+        // Если есть карточки, добавляем их после календаря
+        if (cardsHtml) {
+            calendarContainer.innerHTML += `<div class="shift-cards-container">${cardsHtml}</div>`;
+            
+            // Добавляем обработчики для кнопок чеков
+            this.attachReceiptButtonHandlers();
+        }
+    }
+
+    renderShiftCard(employee, shift) {
+        const shiftDate = new Date();
+        shiftDate.setDate(shift.date);
+        
+        const formattedDate = this.formatShiftDate(shiftDate);
+        const shiftTime = this.formatShiftTime(shift.hours);
+        const position = this.getEmployeePosition(employee);
+        const location = this.getShiftLocation(shift);
+        
+        return `
+            <div class="shift-card" data-employee="${employee}" data-date="${shift.date}">
+                <div class="shift-date">${formattedDate}</div>
+                
+                <div class="shift-info">
+                    <div class="info-row">
+                        <div class="info-label">локация:</div>
+                        <div class="info-value">${location}</div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-label">должность:</div>
+                        <div class="info-value">${position}</div>
+                    </div>
+                </div>
+
+                <div class="shift-time">${shiftTime}</div>
+                <div class="shift-title">смена</div>
+
+                <div class="receipt-button">
+                    <div class="receipt-icon"></div>
+                </div>
+            </div>
+        `;
+    }
+
+    formatShiftDate(date) {
+        const months = [
+            'ЯНВАРЯ', 'ФЕВРАЛЯ', 'МАРТА', 'АПРЕЛЯ', 'МАЯ', 'ИЮНЯ',
+            'ИЮЛЯ', 'АВГУСТА', 'СЕНТЯБРЯ', 'ОКТЯБРЯ', 'НОЯБРЯ', 'ДЕКАБРЯ'
+        ];
+        return `${date.getDate()} ${months[date.getMonth()]}`;
+    }
+
+    formatShiftTime(hours) {
+        const startHour = 10;
+        const endHour = startHour + Math.floor(hours);
+        return `${startHour}:30 - ${endHour}:00`;
+    }
+
+    getEmployeePosition(employee) {
+        return "Оператор";
+    }
+
+    getShiftLocation(shift) {
+        return 'БЦ "Станколит"';
+    }
+
+    attachReceiptButtonHandlers() {
+        document.querySelectorAll('.receipt-button').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const card = e.target.closest('.shift-card');
+                const employee = card.getAttribute('data-employee');
+                const date = card.getAttribute('data-date');
+                this.openReceiptModal(employee, date);
+            });
+        });
+    }
+
+    // === МОДАЛЬНОЕ ОКНО ЧЕКОВ ===
+
+    openReceiptModal(employee, date) {
+        const modalHtml = `
+            <div class="receipt-modal">
+                <div class="receipt-modal-content">
+                    <div class="receipt-modal-header">
+                        <div class="receipt-modal-title">Чеки за ${this.formatShiftDate(new Date(date))}</div>
+                        <button class="close-modal">&times;</button>
+                    </div>
+                    
+                    <div class="receipt-forms-container">
+                        <div class="receipt-form">
+                            <div class="receipt-input-group">
+                                <input type="text" class="receipt-input receipt-number" placeholder="Номер чека">
+                                <input type="text" class="receipt-input receipt-description" placeholder="Описание">
+                                <input type="number" class="receipt-input receipt-amount" placeholder="Сумма">
+                                <button class="receipt-submit-btn">
+                                    <div class="receipt-icon"></div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="receipt-list">
+                        <!-- Список сохраненных чеков будет здесь -->
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Обработчики модального окна
+        this.attachModalHandlers(employee, date);
+    }
+
+    attachModalHandlers(employee, date) {
+        const modal = document.querySelector('.receipt-modal');
+        const closeBtn = modal.querySelector('.close-modal');
+        const submitBtn = modal.querySelector('.receipt-submit-btn');
+        const formsContainer = modal.querySelector('.receipt-forms-container');
+        
+        // Закрытие модального окна
+        closeBtn.addEventListener('click', () => {
+            modal.remove();
+        });
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+        
+        // Отправка чека
+        submitBtn.addEventListener('click', () => {
+            this.submitReceipt(employee, date, formsContainer);
+        });
+        
+        // Enter для отправки
+        modal.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.submitReceipt(employee, date, formsContainer);
+            }
+        });
+        
+        // Загружаем существующие чеки
+        this.loadReceiptsForModal(employee, date);
+    }
+
+    async submitReceipt(employee, date, formsContainer) {
+        const form = formsContainer.querySelector('.receipt-form:last-child');
+        const numberInput = form.querySelector('.receipt-number');
+        const descriptionInput = form.querySelector('.receipt-description');
+        const amountInput = form.querySelector('.receipt-amount');
+        
+        const number = numberInput.value.trim();
+        const description = descriptionInput.value.trim();
+        const amount = parseFloat(amountInput.value);
+        
+        if (!number || !description || isNaN(amount)) {
+            alert('Заполните все поля');
+            return;
+        }
+        
+        const receiptData = {
+            number,
+            description,
+            amount,
+            employee,
+            date: this.formatDateKey(new Date(date))
+        };
+        
+        try {
+            await this.saveReceipt(date, receiptData);
+            
+            // Делаем поля неактивными
+            numberInput.disabled = true;
+            descriptionInput.disabled = true;
+            amountInput.disabled = true;
+            
+            // Добавляем новую форму
+            this.addNewReceiptForm(formsContainer);
+            
+            // Обновляем список чеков
+            this.loadReceiptsForModal(employee, date);
+            
+        } catch (error) {
+            console.error('Ошибка сохранения чека:', error);
+            alert('Ошибка сохранения чека');
+        }
+    }
+
+    addNewReceiptForm(formsContainer) {
+        const newFormHtml = `
+            <div class="receipt-form">
+                <div class="receipt-input-group">
+                    <input type="text" class="receipt-input receipt-number" placeholder="Номер чека">
+                    <input type="text" class="receipt-input receipt-description" placeholder="Описание">
+                    <input type="number" class="receipt-input receipt-amount" placeholder="Сумма">
+                    <button class="receipt-submit-btn">
+                        <div class="receipt-icon"></div>
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        formsContainer.insertAdjacentHTML('beforeend', newFormHtml);
+        
+        // Добавляем обработчик для новой кнопки
+        const newSubmitBtn = formsContainer.querySelector('.receipt-form:last-child .receipt-submit-btn');
+        newSubmitBtn.addEventListener('click', () => {
+            const employee = document.querySelector('.receipt-modal').getAttribute('data-employee');
+            const date = document.querySelector('.receipt-modal').getAttribute('data-date');
+            this.submitReceipt(employee, date, formsContainer);
+        });
+    }
+
+    loadReceiptsForModal(employee, date) {
+        const receiptList = document.querySelector('.receipt-list');
+        const dateKey = this.formatDateKey(new Date(date));
+        
+        const receipts = this.receiptsData[dateKey]?.[employee] || [];
+        
+        if (receipts.length === 0) {
+            receiptList.innerHTML = '<div style="color: #888; text-align: center;">Чеков пока нет</div>';
+            return;
+        }
+        
+        receiptList.innerHTML = receipts.map(receipt => `
+            <div class="receipt-item">
+                <div class="receipt-item-header">
+                    <span class="receipt-number">Чек №${receipt.number}</span>
+                    <span class="receipt-amount">${receipt.amount} ₽</span>
+                </div>
+                <div class="receipt-description">${receipt.description}</div>
+            </div>
+        `).join('');
+    }
+
+    formatDateKey(date) {
+        return date.toISOString().split('T')[0];
+    }
+
+    // === СУЩЕСТВУЮЩИЕ МЕТОДЫ ===
+
     async initializeUser() {
         const initData = this.tg.initDataUnsafe;
         const userData = {
@@ -756,168 +1152,6 @@ class ScheduleApp {
         return this.getMonthSheetNameForDate(this.currentDate);
     }
 
-    initializeEventListeners() {
-        document.getElementById('prev-week').addEventListener('click', () => this.changeWeek(-1));
-        document.getElementById('next-week').addEventListener('click', () => this.changeWeek(1));
-        document.getElementById('toggle-view').addEventListener('click', () => this.toggleView());
-        document.getElementById('show-only-mine').addEventListener('change', (e) => this.toggleFilter(e.target.checked));
-        document.getElementById('global-show-only-registered').addEventListener('change', (e) => this.toggleGlobalFilter(e.target.checked));
-    }
-
-    async toggleGlobalFilter(showOnlyRegistered) {
-        this.globalFilterSettings.showOnlyRegistered = showOnlyRegistered;
-        await firebaseService.saveGlobalFilterSettings(this.globalFilterSettings);
-        if (this.currentPage === 'schedule') {
-            this.render();
-        }
-    }
-
-    changeWeek(direction) {
-        if (this.isMonthView) {
-            this.currentDate.setMonth(this.currentDate.getMonth() + direction);
-        } else {
-            this.currentDate.setDate(this.currentDate.getDate() + (direction * 7));
-        }
-        this.loadScheduleData().then(() => {
-            if (this.currentPage === 'schedule') {
-                this.render();
-            }
-        });
-    }
-
-    toggleView() {
-        this.isMonthView = !this.isMonthView;
-        const toggleBtn = document.getElementById('toggle-view');
-        toggleBtn.textContent = this.isMonthView ? '▲' : '▼';
-        this.loadScheduleData().then(() => {
-            if (this.currentPage === 'schedule') {
-                this.render();
-            }
-        });
-    }
-
-    async toggleFilter(showOnlyMine) {
-        this.filterSettings.showOnlyMine = showOnlyMine;
-        if (this.user) {
-            await firebaseService.saveFilterSettings(this.user.id, this.filterSettings);
-        }
-        if (this.currentPage === 'schedule') {
-            this.render();
-        }
-    }
-
-    render() {
-        this.updateNavigation();
-        
-        const employeesToShow = this.getFilteredEmployees();
-        
-        if (this.isMonthView) {
-            this.renderMonthView(employeesToShow);
-        } else {
-            this.renderWeekView(employeesToShow);
-        }
-    }
-
-    updateNavigation() {
-        const periodElement = document.getElementById('current-period');
-        
-        if (this.isMonthView) {
-            const monthNames = [
-                'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-                'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
-            ];
-            const month = monthNames[this.currentDate.getMonth()];
-            const year = this.currentDate.getFullYear();
-            periodElement.textContent = `${month} ${year}`;
-        } else {
-            const weekStart = new Date(this.currentDate);
-            weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
-            
-            const weekEnd = new Date(weekStart);
-            weekEnd.setDate(weekEnd.getDate() + 6);
-            
-            periodElement.textContent = 
-                `${this.formatDate(weekStart)} - ${this.formatDate(weekEnd)}`;
-        }
-    }
-
-    renderWeekView(employeesToShow) {
-        const weekView = document.getElementById('week-view');
-        const monthView = document.getElementById('month-view');
-        
-        weekView.classList.remove('hidden');
-        monthView.classList.add('hidden');
-        
-        const weekStart = new Date(this.currentDate);
-        weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
-        
-        let html = '<div class="calendar-grid week-view-grid">';
-        
-        html += '<div class="week-header employee-header"></div>';
-        for (let i = 0; i < 7; i++) {
-            const day = new Date(weekStart);
-            day.setDate(day.getDate() + i);
-            const monthName = this.getMonthName(day.getMonth());
-            html += `<div class="week-header">${this.getDayName(day)}<br>${day.getDate()} ${monthName}</div>`;
-        }
-        
-        const myEmployees = [];
-        const otherEmployees = [];
-        
-        employeesToShow.forEach(employee => {
-            if (this.userAttachments.includes(employee)) {
-                myEmployees.push(employee);
-            } else {
-                otherEmployees.push(employee);
-            }
-        });
-        
-        myEmployees.forEach(employee => {
-            html += `<div class="week-time-cell my-employee">${employee}</div>`;
-            
-            for (let i = 0; i < 7; i++) {
-                const day = new Date(weekStart);
-                day.setDate(day.getDate() + i);
-                const dayNumber = day.getDate();
-                const dayMonth = this.getMonthSheetNameForDate(day);
-                
-                html += `<div class="week-day">`;
-                
-                const shifts = this.getShiftsForDay(employee, dayNumber, dayMonth);
-                shifts.forEach(shift => {
-                    const color = this.getEmployeeColor(employee);
-                    html += this.renderShift(shift, color, true);
-                });
-                
-                html += `</div>`;
-            }
-        });
-        
-        otherEmployees.forEach(employee => {
-            html += `<div class="week-time-cell">${employee}</div>`;
-            
-            for (let i = 0; i < 7; i++) {
-                const day = new Date(weekStart);
-                day.setDate(day.getDate() + i);
-                const dayNumber = day.getDate();
-                const dayMonth = this.getMonthSheetNameForDate(day);
-                
-                html += `<div class="week-day">`;
-                
-                const shifts = this.getShiftsForDay(employee, dayNumber, dayMonth);
-                shifts.forEach(shift => {
-                    const color = this.getEmployeeColor(employee);
-                    html += this.renderShift(shift, color, false);
-                });
-                
-                html += `</div>`;
-            }
-        });
-        
-        html += '</div>';
-        weekView.innerHTML = html;
-    }
-
     getShiftsForDay(employee, dayNumber, monthSheet) {
         const employeeShifts = this.weekData[employee];
         if (!employeeShifts) return [];
@@ -1071,6 +1305,56 @@ class ScheduleApp {
         });
     }
 
+    initializeEventListeners() {
+        document.getElementById('prev-week').addEventListener('click', () => this.changeWeek(-1));
+        document.getElementById('next-week').addEventListener('click', () => this.changeWeek(1));
+        document.getElementById('toggle-view').addEventListener('click', () => this.toggleView());
+        document.getElementById('show-only-mine').addEventListener('change', (e) => this.toggleFilter(e.target.checked));
+        document.getElementById('global-show-only-registered').addEventListener('change', (e) => this.toggleGlobalFilter(e.target.checked));
+    }
+
+    async toggleGlobalFilter(showOnlyRegistered) {
+        this.globalFilterSettings.showOnlyRegistered = showOnlyRegistered;
+        await firebaseService.saveGlobalFilterSettings(this.globalFilterSettings);
+        if (this.currentPage === 'schedule') {
+            this.render();
+        }
+    }
+
+    changeWeek(direction) {
+        if (this.isMonthView) {
+            this.currentDate.setMonth(this.currentDate.getMonth() + direction);
+        } else {
+            this.currentDate.setDate(this.currentDate.getDate() + (direction * 7));
+        }
+        this.loadScheduleData().then(() => {
+            if (this.currentPage === 'schedule') {
+                this.render();
+            }
+        });
+    }
+
+    toggleView() {
+        this.isMonthView = !this.isMonthView;
+        const toggleBtn = document.getElementById('toggle-view');
+        toggleBtn.textContent = this.isMonthView ? '▲' : '▼';
+        this.loadScheduleData().then(() => {
+            if (this.currentPage === 'schedule') {
+                this.render();
+            }
+        });
+    }
+
+    async toggleFilter(showOnlyMine) {
+        this.filterSettings.showOnlyMine = showOnlyMine;
+        if (this.user) {
+            await firebaseService.saveFilterSettings(this.user.id, this.filterSettings);
+        }
+        if (this.currentPage === 'schedule') {
+            this.render();
+        }
+    }
+
     async loadFilterSettings() {
         if (this.user) {
             this.filterSettings = await firebaseService.getFilterSettings(this.user.id);
@@ -1097,6 +1381,37 @@ class ScheduleApp {
             if (this.currentPage === 'schedule') {
                 this.render();
             }
+        }
+    }
+
+    initializeNavigation() {
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const page = item.getAttribute('data-page');
+                this.switchPage(page);
+            });
+        });
+    }
+
+    switchPage(pageName) {
+        document.querySelectorAll('.page').forEach(page => {
+            page.classList.add('hidden');
+        });
+        
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        document.getElementById(`${pageName}-page`).classList.remove('hidden');
+        document.querySelector(`.nav-item[data-page="${pageName}"]`).classList.add('active');
+        
+        this.currentPage = pageName;
+        
+        if (pageName === 'schedule') {
+            this.renderSchedulePage();
+        } else if (pageName === 'profile') {
+            this.renderProfilePage();
         }
     }
 }
