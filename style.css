@@ -10,8 +10,7 @@ body {
     font-family: 'Montserrat', Arial, sans-serif;
     font-size: 14px;
     line-height: 1.4;
-    height: 100vh;
-    overflow: hidden;
+    overflow-x: hidden;
 }
 
 .hidden {
@@ -19,15 +18,24 @@ body {
 }
 
 #app {
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    background-color: #1b1b1b;
     position: relative;
-    overflow: hidden;
+    min-height: 100vh;
+    background-color: #1b1b1b;
+    padding: 10px;
 }
 
-/* Фоновые элементы */
+/* Декоративные элементы из Figma */
+.ellipse7 {
+    background-color: rgba(226, 50, 57, 0.58);
+    height: 180px;
+    width: 177px;
+    position: absolute;
+    border-radius: 50%;
+    bottom: -90px;
+    left: -44px;
+    z-index: 0;
+}
+
 .ellipse6 {
     background-color: rgba(47, 97, 220, 0.58);
     height: 166px;
@@ -36,7 +44,7 @@ body {
     position: absolute;
     top: -103px;
     left: -35px;
-    z-index: 1;
+    z-index: 0;
 }
 
 .ellipse5 {
@@ -44,94 +52,91 @@ body {
     height: 166px;
     width: 163px;
     top: -57px;
-    left: 272px;
+    right: -35px;
     position: absolute;
     border-radius: 50%;
-    z-index: 1;
-}
-
-.ellipse7 {
-    background-color: rgba(226, 50, 57, 0.58);
-    height: 180px;
-    width: 177px;
-    top: 722px;
-    left: -44px;
-    position: absolute;
-    border-radius: 50%;
-    z-index: 1;
+    z-index: 0;
 }
 
 .ellipse8 {
     background-color: rgba(47, 97, 220, 0.58);
     height: 151px;
     width: 148px;
-    top: 737px;
-    left: 270px;
+    bottom: -75px;
+    right: -35px;
     position: absolute;
     border-radius: 50%;
-    z-index: 1;
+    z-index: 0;
 }
 
-/* Заголовок приложения */
+/* Заголовок Warpoint Tracker */
 .app-header {
-    position: absolute;
-    top: 20px;
-    left: 18px;
-    z-index: 10;
+    position: relative;
+    z-index: 1;
+    margin-bottom: 20px;
 }
 
 .warpoint {
     color: #ffffff;
+    text-align: left;
     font-size: 64px;
     font-family: 'Bebas Neue', Arial, sans-serif;
-    line-height: 1;
-    margin-bottom: -10px;
+    line-height: 0.8;
+    margin-bottom: 5px;
 }
 
 .tracker {
     color: #ffffff;
+    text-align: left;
     font-size: 64px;
     font-family: 'Bebas Neue', Arial, sans-serif;
-    line-height: 1;
+    line-height: 0.8;
 }
 
 #loading {
     text-align: center;
     padding: 20px;
     font-size: 16px;
-    font-family: 'Montserrat', Arial, sans-serif;
-    z-index: 5;
     position: relative;
+    z-index: 2;
+}
+
+.no-data-message {
+    text-align: center;
+    padding: 40px;
+    font-size: 16px;
+    color: #888;
+    font-style: italic;
 }
 
 /* Страницы */
 .page {
+    position: relative;
+    z-index: 2;
     flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding: 0 10px;
-    position: relative;
-    z-index: 5;
-    margin-top: 120px;
 }
 
 .page-header {
+    background-color: transparent;
     padding: 15px 0;
+    margin-bottom: 10px;
 }
 
 .page-header h1 {
     color: #fff;
     font-size: 20px;
     margin: 0;
-    text-align: left;
+    text-align: center;
     font-family: 'Montserrat', Arial, sans-serif;
 }
 
 .page-content {
     flex: 1;
     overflow-y: auto;
-    padding: 0 0 80px 0;
+    padding: 0 5px 70px 5px;
 }
 
 /* Состояние пустой страницы */
@@ -149,13 +154,11 @@ body {
 .empty-state h3 {
     color: #fff;
     margin-bottom: 10px;
-    font-family: 'Montserrat', Arial, sans-serif;
 }
 
 .empty-state p {
     font-size: 14px;
     line-height: 1.4;
-    font-family: 'Montserrat', Arial, sans-serif;
 }
 
 /* Секции профиля */
@@ -163,7 +166,7 @@ body {
     background-color: #252525;
     padding: 20px;
     border-radius: 18px;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     display: flex;
     align-items: center;
     gap: 15px;
@@ -180,7 +183,6 @@ body {
     font-size: 24px;
     font-weight: bold;
     color: white;
-    font-family: 'Montserrat', Arial, sans-serif;
 }
 
 .user-details h2 {
@@ -194,17 +196,6 @@ body {
     color: #888;
     margin: 0 0 8px 0;
     font-size: 14px;
-    font-family: 'Montserrat', Arial, sans-serif;
-}
-
-.user-position {
-    background-color: #2a2a2a;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    color: #4CAF50;
-    display: inline-block;
-    font-family: 'Montserrat', Arial, sans-serif;
 }
 
 .user-status {
@@ -214,8 +205,6 @@ body {
     font-size: 12px;
     color: #4CAF50;
     display: inline-block;
-    font-family: 'Montserrat', Arial, sans-serif;
-    margin-left: 8px;
 }
 
 .settings-section {
@@ -268,7 +257,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    min-width: 250px;
+    min-width: 200px;
 }
 
 .name-input-group {
@@ -276,7 +265,7 @@ body {
     gap: 5px;
 }
 
-.employee-select {
+.employee-select, .position-select {
     flex: 1;
     background-color: #333;
     border: 1px solid #555;
@@ -284,21 +273,10 @@ body {
     padding: 5px;
     min-width: 150px;
     border-radius: 6px;
-    font-family: 'Montserrat', Arial, sans-serif;
-}
-
-.position-select {
-    background-color: #333;
-    border: 1px solid #555;
-    color: #fff;
-    padding: 5px;
-    border-radius: 6px;
-    font-family: 'Montserrat', Arial, sans-serif;
-    width: 100%;
 }
 
 .link-btn, .unlink-btn {
-    background-color: #444;
+    background-color: #4d4949;
     border: none;
     color: #fff;
     padding: 5px 10px;
@@ -306,11 +284,10 @@ body {
     font-size: 12px;
     white-space: nowrap;
     border-radius: 6px;
-    font-family: 'Montserrat', Arial, sans-serif;
 }
 
 .link-btn:hover, .unlink-btn:hover {
-    background-color: #555;
+    background-color: #5a5656;
 }
 
 .unlink-btn {
@@ -327,7 +304,6 @@ body {
 .attached-names strong {
     font-size: 12px;
     color: #ccc;
-    font-family: 'Montserrat', Arial, sans-serif;
 }
 
 .attached-name {
@@ -338,14 +314,12 @@ body {
     border-radius: 4px;
     font-size: 11px;
     border: 1px solid #555;
-    font-family: 'Montserrat', Arial, sans-serif;
 }
 
 .no-names {
     font-style: italic;
     color: #888;
     font-size: 12px;
-    font-family: 'Montserrat', Arial, sans-serif;
 }
 
 .admin-control {
@@ -358,6 +332,15 @@ body {
 
 .position-control {
     margin-top: 8px;
+}
+
+.position-control select {
+    background-color: #333;
+    border: 1px solid #555;
+    color: #fff;
+    padding: 4px;
+    border-radius: 4px;
+    font-size: 12px;
 }
 
 /* Зарегистрированные сотрудники */
@@ -374,17 +357,15 @@ body {
     color: #fff;
     padding: 8px;
     border-radius: 6px;
-    font-family: 'Montserrat', Arial, sans-serif;
 }
 
 .add-employee-form button {
-    background-color: #444;
+    background-color: #4d4949;
     border: none;
     color: #fff;
     padding: 8px 15px;
     cursor: pointer;
     border-radius: 6px;
-    font-family: 'Montserrat', Arial, sans-serif;
 }
 
 .employees-list {
@@ -407,7 +388,6 @@ body {
     padding: 3px 8px;
     cursor: pointer;
     border-radius: 3px;
-    font-family: 'Montserrat', Arial, sans-serif;
 }
 
 .no-employees {
@@ -415,7 +395,6 @@ body {
     color: #888;
     font-style: italic;
     padding: 20px;
-    font-family: 'Montserrat', Arial, sans-serif;
 }
 
 /* Панель фильтров */
@@ -423,7 +402,7 @@ body {
     margin-bottom: 15px;
     padding: 10px;
     background-color: #252525;
-    border-radius: 12px;
+    border-radius: 18px;
 }
 
 .checkbox-container {
@@ -462,7 +441,7 @@ body {
     padding: 10px;
     margin: 10px 0;
     background-color: #2a2a2a;
-    border-radius: 8px;
+    border-radius: 12px;
 }
 
 .color-preview {
@@ -482,7 +461,6 @@ body {
     text-align: left;
     font-size: 12px;
     color: #ccc;
-    font-family: 'Montserrat', Arial, sans-serif;
 }
 
 .slider-container span:last-child {
@@ -490,7 +468,6 @@ body {
     text-align: right;
     font-size: 12px;
     color: #ccc;
-    font-family: 'Montserrat', Arial, sans-serif;
 }
 
 .slider-container input {
@@ -525,12 +502,10 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 10px;
-    padding: 0 10px;
-    background-color: #252525;
-    padding: 15px;
-    border-radius: 12px;
     margin-bottom: 15px;
+    padding: 15px;
+    background-color: #252525;
+    border-radius: 18px;
 }
 
 .nav-btn {
@@ -540,9 +515,9 @@ body {
     padding: 8px 12px;
     cursor: pointer;
     font-size: 16px;
-    border-radius: 6px;
-    width: 30px;
-    height: 30px;
+    border-radius: 50%;
+    width: 25px;
+    height: 25px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -557,6 +532,7 @@ body {
     font-weight: bold;
     text-align: center;
     font-family: 'Montserrat', Arial, sans-serif;
+    font-size: 20px;
 }
 
 .toggle-btn {
@@ -567,15 +543,16 @@ body {
     cursor: pointer;
     width: 100%;
     margin-bottom: 15px;
-    border-radius: 8px;
+    border-radius: 12px;
     font-family: 'Montserrat', Arial, sans-serif;
 }
 
 /* Календарь */
 #calendar-container {
     background-color: #252525;
-    border-radius: 12px;
+    border-radius: 18px;
     overflow: hidden;
+    padding: 15px;
 }
 
 .calendar-grid {
@@ -593,7 +570,7 @@ body {
     padding: 8px 4px;
     text-align: center;
     background-color: #252525;
-    font-family: 'Montserrat', Arial, sans-serif;
+    font-family: 'Gilroy', Arial, sans-serif;
 }
 
 .employee-header {
@@ -607,7 +584,7 @@ body {
     font-size: 12px;
     display: flex;
     align-items: center;
-    font-family: 'Montserrat', Arial, sans-serif;
+    font-family: 'Gilroy', Arial, sans-serif;
 }
 
 .week-time-cell.my-employee {
@@ -626,7 +603,7 @@ body {
     text-align: center;
     background-color: #2d2d2d;
     font-weight: bold;
-    font-family: 'Montserrat', Arial, sans-serif;
+    font-family: 'Gilroy', Arial, sans-serif;
 }
 
 .month-day {
@@ -635,7 +612,6 @@ body {
     background-color: #252525;
     border: 1px solid #333;
     position: relative;
-    font-family: 'Montserrat', Arial, sans-serif;
 }
 
 .month-day.other-month {
@@ -650,6 +626,7 @@ body {
     font-size: 12px;
     margin-bottom: 2px;
     font-weight: bold;
+    font-family: 'Gilroy', Arial, sans-serif;
 }
 
 /* Параллелограммы смен */
@@ -685,7 +662,7 @@ body {
     width: 100%;
 }
 
-/* Карточка смены */
+/* НОВЫЙ ДИЗАЙН КАРТОЧКИ СМЕНЫ */
 .shift-card {
     background-color: #252525;
     border-radius: 18px;
@@ -694,7 +671,8 @@ body {
     position: relative;
     overflow: hidden;
     padding: 25px 20px;
-    margin: 20px auto;
+    margin: 10px auto;
+    border: 1px solid #333;
 }
 
 .shift-card::before {
@@ -793,117 +771,30 @@ body {
 .receipt-icon {
     width: 21px;
     height: 32px;
-    position: relative;
-}
-
-.receipt-icon::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 21px;
-    height: 32px;
     background-color: #ffffff;
+    position: relative;
     border-radius: 2px;
 }
 
+.receipt-icon::before,
 .receipt-icon::after {
     content: "";
     position: absolute;
-    background-color: #1b1b1b;
-    height: 2px;
+    background-color: #ffffff;
+    height: 1.6px;
     left: 50%;
     transform: translateX(-50%);
-}
-
-.receipt-icon::after {
-    width: 11px;
-    top: 10px;
+    border-radius: 1px;
 }
 
 .receipt-icon::before {
-    width: 6px;
+    width: 11.5px;
+    top: 10px;
+}
+
+.receipt-icon::after {
+    width: 6.5px;
     top: 22px;
-}
-
-/* Нижнее меню */
-#bottom-navigation {
-    position: fixed;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: #242424;
-    border: 1px solid #333;
-    border-radius: 28px;
-    display: flex;
-    padding: 8px;
-    z-index: 1000;
-    width: 254px;
-    height: 70px;
-    margin-bottom: 10px;
-}
-
-.nav-item {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    opacity: 0.6;
-    position: relative;
-}
-
-.nav-item.active {
-    opacity: 1;
-}
-
-.nav-item.active .nav-icon {
-    transform: scale(1.1);
-}
-
-.nav-item.active .nav-label {
-    color: #fff;
-}
-
-.nav-icon {
-    width: 24px;
-    height: 24px;
-    margin-bottom: 4px;
-    transition: transform 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.nav-label {
-    font-size: 12px;
-    color: #888;
-    transition: color 0.3s ease;
-    font-family: 'Montserrat', Arial, sans-serif;
-}
-
-/* Иконки навигации */
-.calendar-icon, .tasks-icon, .profile-icon {
-    width: 24px;
-    height: 24px;
-    background-color: #ffffff;
-}
-
-.calendar-icon {
-    mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20a2 2 0 002 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM5 6v2h14V6H5z"/></svg>');
-    -webkit-mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20a2 2 0 002 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM5 6v2h14V6H5z"/></svg>');
-}
-
-.tasks-icon {
-    mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-3.06 16L7.4 14.46l1.41-1.41 2.12 2.12 4.24-4.24 1.41 1.41L10.94 18zM13 9V3.5L18.5 9H13z"/></svg>');
-    -webkit-mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-3.06 16L7.4 14.46l1.41-1.41 2.12 2.12 4.24-4.24 1.41 1.41L10.94 18zM13 9V3.5L18.5 9H13z"/></svg>');
-}
-
-.profile-icon {
-    mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>');
-    -webkit-mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>');
 }
 
 /* Модальное окно чеков */
@@ -918,12 +809,13 @@ body {
     justify-content: center;
     align-items: center;
     z-index: 1000;
+    padding: 20px;
 }
 
 .receipt-modal-content {
     background-color: #252525;
     border-radius: 18px;
-    width: 90%;
+    width: 100%;
     max-width: 400px;
     max-height: 80vh;
     overflow-y: auto;
@@ -950,59 +842,54 @@ body {
     color: #ffffff;
     font-size: 24px;
     cursor: pointer;
-}
-
-.receipt-forms-container {
-    margin-bottom: 20px;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .receipt-form {
-    margin-bottom: 15px;
+    margin-bottom: 20px;
 }
 
 .receipt-input-group {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     margin-bottom: 10px;
     align-items: center;
-    flex-wrap: wrap;
 }
 
 .receipt-input {
     flex: 1;
+    min-width: 80px;
     background-color: #333;
     border: 1px solid #555;
     color: #fff;
-    padding: 10px;
+    padding: 8px;
     border-radius: 6px;
     font-family: 'Montserrat', Arial, sans-serif;
-    min-width: 0;
+    font-size: 14px;
 }
 
-.receipt-input.receipt-number {
-    flex: 0 0 80px;
-}
-
-.receipt-input.receipt-description {
-    flex: 2;
-}
-
-.receipt-input.receipt-amount {
-    flex: 0 0 80px;
+.receipt-input:disabled {
+    background-color: #2a2a2a;
+    color: #888;
 }
 
 .receipt-submit-btn {
     background-color: #4d4949;
     border: none;
     color: #fff;
-    padding: 10px;
+    padding: 8px 12px;
     cursor: pointer;
     border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex: 0 0 50px;
-    height: 40px;
+    min-width: 44px;
+    height: 38px;
 }
 
 .receipt-submit-btn:disabled {
@@ -1046,12 +933,59 @@ body {
     font-family: 'Montserrat', Arial, sans-serif;
 }
 
-.no-data-message {
-    text-align: center;
-    padding: 40px;
-    font-size: 16px;
+/* Нижнее меню */
+#bottom-navigation {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: #242424;
+    border-top: 1px solid #333;
+    display: flex;
+    padding: 8px 0;
+    z-index: 1000;
+    border-radius: 28px 28px 0 0;
+    margin: 0 10px;
+    width: calc(100% - 20px);
+    max-width: 375px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 0;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    opacity: 0.6;
+}
+
+.nav-item.active {
+    opacity: 1;
+}
+
+.nav-item.active .nav-icon {
+    transform: scale(1.1);
+}
+
+.nav-item.active .nav-label {
+    color: #fff;
+}
+
+.nav-icon {
+    font-size: 20px;
+    margin-bottom: 4px;
+    transition: transform 0.3s ease;
+}
+
+.nav-label {
+    font-size: 12px;
     color: #888;
-    font-style: italic;
+    transition: color 0.3s ease;
     font-family: 'Montserrat', Arial, sans-serif;
 }
 
@@ -1069,11 +1003,23 @@ body {
         padding: 15px;
     }
     
-    .app-header {
-        top: 10px;
+    .shift-card {
+        height: 300px;
     }
-    
-    .page {
-        margin-top: 100px;
-    }
+}
+
+/* Дни недели заголовки */
+.week-days-header {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 10px;
+    padding: 0 10px;
+}
+
+.week-day-header {
+    color: #ffffff;
+    font-size: 16px;
+    font-family: 'Gilroy', Arial, sans-serif;
+    text-align: center;
+    width: 40px;
 }
