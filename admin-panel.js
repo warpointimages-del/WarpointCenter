@@ -100,13 +100,14 @@ class AdminPanel {
                     <div class="control-section">
                         <h5>Настройка должности</h5>
                         <div class="position-control">
-                            <select class="position-select" onchange="adminPanel.updatePosition('${user.id}', this.value)">
+                            <select class="position-select" id="position-select-${user.id}">
                                 <option value="Стажёр" ${(user.position || 'Стажёр') === 'Стажёр' ? 'selected' : ''}>Стажёр</option>
                                 <option value="Оператор" ${(user.position || 'Стажёр') === 'Оператор' ? 'selected' : ''}>Оператор</option>
                                 <option value="Старший оператор" ${(user.position || 'Стажёр') === 'Старший оператор' ? 'selected' : ''}>Старший оператор</option>
                                 <option value="Заместитель управляющего" ${(user.position || 'Стажёр') === 'Заместитель управляющего' ? 'selected' : ''}>Заместитель управляющего</option>
                                 <option value="Администратор" ${(user.position || 'Стажёр') === 'Администратор' ? 'selected' : ''}>Администратор</option>
                             </select>
+                            <button class="link-btn" onclick="adminPanel.updatePosition('${user.id}')" style="margin-top: 8px;">Сохранить должность</button>
                         </div>
                     </div>
                     
@@ -238,7 +239,10 @@ class AdminPanel {
         this.renderUsersList();
     }
 
-    async updatePosition(userId, position) {
+    async updatePosition(userId) {
+        const select = document.getElementById(`position-select-${userId}`);
+        const position = select.value;
+        
         await firebaseService.updateUserPosition(userId, position);
         this.users[userId].position = position;
         this.renderUsersList();
