@@ -54,6 +54,7 @@ class AdminPanel {
                     <strong>${user.firstName || ''} ${user.lastName || ''}</strong>
                     <div>@${user.username || 'нет username'}</div>
                     <div>ID: ${user.id}</div>
+                    <div>Должность: ${user.position || 'Стажёр'}</div>
                     <div class="attached-names">
                         <strong>Привязанные сотрудники:</strong>
                         ${userAttachments.length > 0 
@@ -75,6 +76,15 @@ class AdminPanel {
                             ).join('')}
                         </select>
                         <button class="link-btn" onclick="adminPanel.attachEmployee('${user.id}')">Привязать</button>
+                    </div>
+                    <div class="position-control">
+                        <select class="position-select" onchange="adminPanel.updatePosition('${user.id}', this.value)">
+                            <option value="Стажёр" ${user.position === 'Стажёр' ? 'selected' : ''}>Стажёр</option>
+                            <option value="Оператор" ${user.position === 'Оператор' ? 'selected' : ''}>Оператор</option>
+                            <option value="Старший оператор" ${user.position === 'Старший оператор' ? 'selected' : ''}>Старший оператор</option>
+                            <option value="Заместитель управляющего" ${user.position === 'Заместитель управляющего' ? 'selected' : ''}>Заместитель управляющего</option>
+                            <option value="Администратор" ${user.position === 'Администратор' ? 'selected' : ''}>Администратор</option>
+                        </select>
                     </div>
                     <div class="admin-control">
                         <label>
@@ -186,9 +196,9 @@ class AdminPanel {
     }
 
     async updateAvailableMonths() {
-    if (window.scheduleApp) {
-        await window.scheduleApp.loadAvailableMonths();
-        window.scheduleApp.renderMonthNavigation();
+        if (window.scheduleApp) {
+            await window.scheduleApp.loadAvailableMonths();
+            window.scheduleApp.renderMonthNavigation();
         }
     }
     
@@ -208,11 +218,19 @@ class AdminPanel {
         this.users[userId].isAdmin = isAdmin;
     }
 
+    async updatePosition(userId, position) {
+        await firebaseService.updateUserPosition(userId, position);
+        this.users[userId].position = position;
+        this.updateScheduleApp();
+    }
+
     updateScheduleApp() {
         if (window.scheduleApp) {
             window.scheduleApp.loadRegisteredEmployees().then(() => {
                 window.scheduleApp.loadUserAttachments().then(() => {
-                    window.scheduleApp.render();
+                    window.scheduleApp.loadAllUsers().then(() => {
+                        window.scheduleApp.render();
+                    });
                 });
             });
         }
